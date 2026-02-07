@@ -109,6 +109,7 @@ class _AuthScreenState extends State<AuthScreen> {
               TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
+                enableInteractiveSelection: false,
                 decoration: const InputDecoration(
                   labelText: 'Phone Number',
                   hintText: '+234801234567',
@@ -119,6 +120,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
+                  enableInteractiveSelection: false,
                   decoration: const InputDecoration(
                     labelText: 'Email',
                     hintText: 'you@example.com',
@@ -129,6 +131,7 @@ class _AuthScreenState extends State<AuthScreen> {
               TextField(
                 controller: _passwordController,
                 obscureText: true,
+                enableInteractiveSelection: false,
                 decoration: const InputDecoration(
                   labelText: 'Password',
                   hintText: '••••••••',

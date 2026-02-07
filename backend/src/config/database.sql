@@ -6,9 +6,13 @@ CREATE TABLE users (
   password_hash VARCHAR(255) NOT NULL,
   stellar_public_key VARCHAR(56) NOT NULL,
   stellar_secret_key_encrypted TEXT NOT NULL,
+  bvn_encrypted TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Add bvn_encrypted if table already exists
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bvn_encrypted TEXT;
 
 -- Transactions table
 CREATE TABLE transactions (

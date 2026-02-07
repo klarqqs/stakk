@@ -7,6 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "test-stellar": "ts-node src/test-stellar.ts",
     "setup-db": "ts-node src/setup-database.ts",
+    "migrate:bvn": "ts-node src/migrations/add-bvn-to-users.ts",
     "test-user": "ts-node src/test-user-creation.ts",
     "dev": "nodemon src/server.ts",
     "start": "ts-node src/server.ts",

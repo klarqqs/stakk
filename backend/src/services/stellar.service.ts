@@ -2,24 +2,32 @@ import * as StellarSdk from 'stellar-sdk';
 
 class StellarService {
   private server: StellarSdk.Horizon.Server;
-  
+  private readonly isMainnet: boolean;
+
   constructor() {
-    // Connect to Stellar Testnet
-    this.server = new StellarSdk.Horizon.Server('https://horizon-testnet.stellar.org');
+    this.isMainnet = process.env.STELLAR_NETWORK !== 'testnet';
+    const horizonUrl = this.isMainnet
+      ? 'https://horizon.stellar.org'
+      : 'https://horizon-testnet.stellar.org';
+    this.server = new StellarSdk.Horizon.Server(horizonUrl);
   }
 
   // Create a new wallet
   createWallet() {
     const pair = StellarSdk.Keypair.random();
-    
+
     return {
       publicKey: pair.publicKey(),
       secretKey: pair.secret()
     };
   }
 
-  // Fund testnet account with free XLM
+  // Fund testnet account with free XLM (only works on testnet)
   async fundTestnetAccount(publicKey: string) {
+    if (this.isMainnet) {
+      console.log('⚠️ Skipping friendbot - mainnet has no free XLM. Fund account manually.');
+      return;
+    }
     try {
       const response = await fetch(
         `https://friendbot.stellar.org?addr=${publicKey}`

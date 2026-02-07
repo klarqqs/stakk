@@ -104,6 +104,43 @@ class ApiClient {
     );
   }
 
+  Future<VirtualAccount> getVirtualAccount() async {
+    final res = await http.get(
+      Uri.parse('${Env.apiBaseUrl}/wallet/virtual-account'),
+      headers: await _headers(withAuth: true),
+    );
+
+    if (res.statusCode == 401) {
+      await _clearToken();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch virtual account');
+    }
+    return VirtualAccount.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Submit BVN for permanent deposit account (required before getVirtualAccount)
+  Future<void> submitBvn(String bvn) async {
+    final res = await http.post(
+      Uri.parse('${Env.apiBaseUrl}/wallet/bvn'),
+      headers: await _headers(withAuth: true),
+      body: jsonEncode({'bvn': bvn.trim()}),
+    );
+
+    if (res.statusCode == 401) {
+      await _clearToken();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to save BVN');
+    }
+  }
+
   Future<void> saveToken(String token) => _setToken(token);
 
   Future<void> logout() => _clearToken();
@@ -215,4 +252,22 @@ class Transaction {
       );
 
   double get displayAmount => (amountUsdc ?? amountNaira ?? 0).toDouble();
+}
+
+class VirtualAccount {
+  final String accountNumber;
+  final String accountName;
+  final String bankName;
+
+  VirtualAccount({
+    required this.accountNumber,
+    required this.accountName,
+    required this.bankName,
+  });
+
+  factory VirtualAccount.fromJson(Map<String, dynamic> json) => VirtualAccount(
+        accountNumber: json['account_number'] as String? ?? '',
+        accountName: json['account_name'] as String? ?? '',
+        bankName: json['bank_name'] as String? ?? '',
+      );
 }

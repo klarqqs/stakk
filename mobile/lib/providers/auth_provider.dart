@@ -44,4 +44,8 @@ class AuthProvider extends ChangeNotifier {
 
   Future<TransactionsResponse> getTransactions() =>
       _api.getTransactions();
+
+  Future<VirtualAccount> getVirtualAccount() => _api.getVirtualAccount();
+
+  Future<void> submitBvn(String bvn) => _api.submitBvn(bvn);
 }
