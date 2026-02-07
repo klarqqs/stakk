@@ -23,7 +23,7 @@ app.use('/api/wallet', walletRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
-    res.json({ status: 'OK', message: 'USDC Savings API is running' });
+    res.json({ status: 'OK', message: 'Stakk API is running' });
 });
 
 // Start server

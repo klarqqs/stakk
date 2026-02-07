@@ -18,6 +18,14 @@ dist/
 # Testing
 coverage/
 
+# Flutter
+mobile/.dart_tool/
+mobile/.packages
+mobile/build/
+mobile/*.iml
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+
 # Misc
 .DS_Store
 *.log

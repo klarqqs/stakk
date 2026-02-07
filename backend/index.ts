@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/", (_req, res) => {
-  res.json({ message: "USDC Savings API" });
+  res.json({ message: "Stakk API" });
 });
 
 app.listen(port, () => {
