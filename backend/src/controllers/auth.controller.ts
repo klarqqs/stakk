@@ -28,8 +28,7 @@ export class AuthController {
       // Create Stellar wallet
       const wallet = stellarService.createWallet();
       
-      // Fund testnet account (only for testing, remove in production)
-      await stellarService.fundTestnetAccount(wallet.publicKey);
+      await stellarService.fundNewAccount(wallet.publicKey);
 
       // Hash password
       const passwordHash = await bcrypt.hash(password, 10);
@@ -74,7 +73,13 @@ export class AuthController {
         token
       });
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       console.error('Registration error:', error);
+      if (msg.includes('fund') || msg.includes('XLM') || msg.includes('Treasury')) {
+        return res.status(503).json({
+          error: 'Account creation temporarily unavailable. Please try again later.',
+        });
+      }
       res.status(500).json({ error: 'Registration failed' });
     }
   }

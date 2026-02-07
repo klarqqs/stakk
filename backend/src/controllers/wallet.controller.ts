@@ -30,7 +30,7 @@ export class WalletController {
 
       res.json({
         database_balance: {
-          usdc: parseFloat(wallet.usdc_balance)
+          usdc: parseFloat(String(wallet.usdc_balance ?? 0)) || 0
         },
         stellar_balance: stellarBalances,
         stellar_address: wallet.stellar_public_key
