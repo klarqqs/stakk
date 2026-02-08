@@ -9,6 +9,7 @@
     "setup-db": "ts-node src/setup-database.ts",
     "migrate:bvn": "ts-node src/migrations/add-bvn-to-users.ts",
     "migrate:email": "ts-node src/migrations/add-email-verified.ts",
+    "migrate:phone": "ts-node src/migrations/extend-phone-number.ts",
     "check-treasury": "ts-node src/scripts/check-treasury.ts",
     "test-user": "ts-node src/test-user-creation.ts",
     "dev": "nodemon src/server.ts",

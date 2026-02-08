@@ -1,7 +1,7 @@
 -- Users table
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
-  phone_number VARCHAR(20) UNIQUE NOT NULL,
+  phone_number VARCHAR(255) UNIQUE NOT NULL,
   email VARCHAR(255),
   password_hash VARCHAR(255) NOT NULL,
   stellar_public_key VARCHAR(56) NOT NULL,
