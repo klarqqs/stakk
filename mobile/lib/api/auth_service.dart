@@ -114,16 +114,35 @@ class AuthService {
 
   /// Check if email exists (routes to Login or Sign Up)
   Future<CheckEmailResponse> checkEmail(String email) async {
-    final res = await http.post(
-      Uri.parse('$_base/check-email'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email}),
-    );
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    if (res.statusCode != 200) {
-      throw AuthException(body['error']?.toString() ?? 'Failed to check email');
+    try {
+      final res = await http.post(
+        Uri.parse('$_base/check-email'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      ).timeout(const Duration(seconds: 15));
+
+      Map<String, dynamic>? body;
+      try {
+        body = jsonDecode(res.body) as Map<String, dynamic>?;
+      } catch (_) {
+        throw AuthException('Invalid server response (${res.statusCode})');
+      }
+
+      if (res.statusCode != 200) {
+        throw AuthException(body?['error']?.toString() ?? 'Failed to check email');
+      }
+      return CheckEmailResponse.fromJson(body ?? {});
+    } on AuthException {
+      rethrow;
+    } catch (e) {
+      throw AuthException(
+        e.toString().contains('SocketException') || e.toString().contains('Connection refused')
+            ? 'Cannot reach server. Check internet and backend URL.'
+            : e.toString().contains('Timeout')
+                ? 'Connection timed out. Is the backend running?'
+                : 'Check email failed: ${e.toString().split('\n').first}',
+      );
     }
-    return CheckEmailResponse.fromJson(body);
   }
 
   /// Register with email (creates user, sends OTP)

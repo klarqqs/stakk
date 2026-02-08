@@ -21,18 +21,15 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 
-// Health check
+// Health check (Railway and other platforms)
 app.get('/health', (req, res) => {
-    res.json({ status: 'OK', message: 'Stakk API is running' });
+  res.json({ status: 'OK', message: 'Stakk API is running' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔐 Auth: http://localhost:${PORT}/api/auth/*`);
-  console.log(`💰 Wallet: http://localhost:${PORT}/api/wallet/*`);
-  console.log(`🔗 Webhook: http://localhost:${PORT}/webhook/*`);
-  console.log(`   Flutterwave: POST /webhook/flutterwave`);
-  console.log(`   ngrok: run "npm run ngrok" then use https://<your-id>.ngrok-free.app/webhook/flutterwave`);
+// Root redirect for platform health checks
+app.get('/', (req, res) => res.redirect('/health'));
+
+// Start server - bind to 0.0.0.0 so Railway can reach it from outside the container
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
 });

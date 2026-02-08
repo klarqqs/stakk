@@ -44,8 +44,9 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
       }
     } on AuthException catch (e) {
       setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = 'Something went wrong');
+    } catch (e, st) {
+      debugPrint('Check email error: $e\n$st');
+      setState(() => _error = _formatError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -53,6 +54,20 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
 
   bool _isValidEmail(String s) =>
       RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(s);
+
+  String _formatError(Object e) {
+    final msg = e.toString();
+    if (msg.contains('SocketException') || msg.contains('Connection refused')) {
+      return 'Cannot reach server. Check your connection and that the backend is running.';
+    }
+    if (msg.contains('Connection timed out') || msg.contains('TimeoutException')) {
+      return 'Connection timed out. The server may be slow or unreachable.';
+    }
+    if (msg.contains('FormatException') || msg.contains('json')) {
+      return 'Invalid server response. The backend may have returned an error.';
+    }
+    return msg.length > 80 ? 'Network or server error. Try again.' : msg;
+  }
 
   @override
   Widget build(BuildContext context) {
