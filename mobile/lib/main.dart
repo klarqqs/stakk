@@ -35,9 +35,7 @@ class StakkApp extends StatelessWidget {
             initialRoute: '/',
             routes: {
               '/': (context) => const AuthGate(),
-              '/auth': (context) => const AuthScreen(),
               '/auth/email': (context) => const EmailOtpScreen(),
-              '/auth/landing': (context) => const AuthLandingScreen(),
               '/auth/check-email': (context) => const CheckEmailScreen(),
               '/auth/login': (context) => const LoginScreen(),
               '/auth/signup': (context) => const SignupScreen(),

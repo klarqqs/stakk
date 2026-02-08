@@ -69,48 +69,6 @@ class ApiClient {
     return res;
   }
 
-  Future<AuthResponse> register({
-    required String phoneNumber,
-    required String email,
-    required String password,
-  }) async {
-    final res = await http.post(
-      Uri.parse('${Env.apiBaseUrl}/auth/register'),
-      headers: await _headers(),
-      body: jsonEncode({
-        'phone_number': phoneNumber,
-        'email': email,
-        'password': password,
-      }),
-    );
-
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    if (res.statusCode != 201) {
-      throw ApiException(body['error']?.toString() ?? 'Registration failed');
-    }
-    return AuthResponse.fromJson(body);
-  }
-
-  Future<AuthResponse> login({
-    required String phoneNumber,
-    required String password,
-  }) async {
-    final res = await http.post(
-      Uri.parse('${Env.apiBaseUrl}/auth/login'),
-      headers: await _headers(),
-      body: jsonEncode({
-        'phone_number': phoneNumber,
-        'password': password,
-      }),
-    );
-
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    if (res.statusCode != 200) {
-      throw ApiException(body['error']?.toString() ?? 'Login failed');
-    }
-    return AuthResponse.fromJson(body);
-  }
-
   Future<WalletBalance> getBalance() async {
     final res = await _requestWithRefresh(() async => http.get(
           Uri.parse('${Env.apiBaseUrl}/wallet/balance'),
@@ -199,24 +157,6 @@ class ApiException implements Exception {
   ApiException(this.message);
   @override
   String toString() => message;
-}
-
-class AuthResponse {
-  final String message;
-  final User user;
-  final String token;
-
-  AuthResponse({
-    required this.message,
-    required this.user,
-    required this.token,
-  });
-
-  factory AuthResponse.fromJson(Map<String, dynamic> json) => AuthResponse(
-        message: json['message'] as String? ?? '',
-        user: User.fromJson(json['user'] as Map<String, dynamic>),
-        token: json['token'] as String,
-      );
 }
 
 class User {

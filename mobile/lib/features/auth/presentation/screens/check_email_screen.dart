@@ -60,7 +60,7 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).pushReplacementNamed('/'),
         ),
       ),
       body: SafeArea(
@@ -105,14 +105,6 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              TextButton(
-                onPressed: () => Navigator.of(context).pushReplacementNamed('/auth'),
-                child: Text(
-                  'Sign in with phone & password',
-                  style: AppTheme.body(fontSize: 14, color: const Color(0xFF6B7280)),
-                ),
-              ),
               const SizedBox(height: 24),
               SizedBox(
                 height: 52,

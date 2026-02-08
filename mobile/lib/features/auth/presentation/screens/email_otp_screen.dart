@@ -28,8 +28,12 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
   @override
   void dispose() {
     _emailController.dispose();
-    for (final c in _otpControllers) c.dispose();
-    for (final n in _otpFocusNodes) n.dispose();
+    for (final c in _otpControllers) {
+      c.dispose();
+    }
+    for (final n in _otpFocusNodes) {
+      n.dispose();
+    }
     _countdownTimer?.cancel();
     super.dispose();
   }
@@ -113,7 +117,9 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
     } on AuthException catch (e) {
       setState(() {
         _error = e.message;
-        for (final c in _otpControllers) c.clear();
+        for (final c in _otpControllers) {
+          c.clear();
+        }
         _otpFocusNodes[0].requestFocus();
       });
     } catch (_) {
@@ -139,7 +145,9 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
       }
       setState(() {
         _resendCountdown = 60;
-        for (final c in _otpControllers) c.clear();
+        for (final c in _otpControllers) {
+          c.clear();
+        }
         _otpFocusNodes[0].requestFocus();
       });
       _startCountdown();
@@ -149,9 +157,11 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
         );
       }
     } on AuthException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message)),
       );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

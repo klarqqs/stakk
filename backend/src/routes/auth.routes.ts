@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { AuthController } from '../controllers/auth.controller.ts';
 import { EmailOtpController } from '../controllers/email-otp.controller.ts';
 import { EmailAuthController } from '../controllers/email-auth.controller.ts';
 import { GoogleAuthController } from '../controllers/google-auth.controller.ts';
@@ -11,7 +10,6 @@ import {
   oauthLimiter
 } from '../middleware/rate-limit.ts';
 import {
-  verifyAccessToken,
   revokeRefreshToken,
   validateRefreshToken,
   generateAccessToken,
@@ -21,15 +19,10 @@ import {
 import pool from '../config/database.ts';
 
 const router = Router();
-const authController = new AuthController();
 const emailOtpController = new EmailOtpController();
 const emailAuthController = new EmailAuthController();
 const googleAuthController = new GoogleAuthController();
 const appleAuthController = new AppleAuthController();
-
-// Legacy phone + password
-router.post('/register', (req, res) => authController.register(req, res));
-router.post('/login', (req, res) => authController.login(req, res));
 
 // Email-first flow (Dayfi-style)
 router.post('/check-email', (req, res) => emailAuthController.checkEmail(req, res));

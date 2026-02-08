@@ -13,33 +13,6 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> isAuthenticated() => _api.hasToken();
 
-  /// Legacy: phone + password login
-  Future<void> login(String phoneNumber, String password) async {
-    final res = await _api.login(
-      phoneNumber: phoneNumber,
-      password: password,
-    );
-    await _api.saveToken(res.token);
-    _user = res.user;
-    notifyListeners();
-  }
-
-  /// Legacy: phone + password registration
-  Future<void> register(
-    String phoneNumber,
-    String email,
-    String password,
-  ) async {
-    final res = await _api.register(
-      phoneNumber: phoneNumber,
-      email: email,
-      password: password,
-    );
-    await _api.saveToken(res.token);
-    _user = res.user;
-    notifyListeners();
-  }
-
   /// Check if email exists (routes to Login or Sign Up)
   Future<bool> checkEmail(String email) async {
     final res = await _authService.checkEmail(email);

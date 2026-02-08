@@ -33,8 +33,12 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
 
   @override
   void dispose() {
-    for (final c in _otpControllers) c.dispose();
-    for (final n in _otpFocusNodes) n.dispose();
+    for (final c in _otpControllers) {
+      c.dispose();
+    }
+    for (final n in _otpFocusNodes) {
+      n.dispose();
+    }
     _countdownTimer?.cancel();
     super.dispose();
   }
@@ -99,7 +103,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       if (!mounted) return;
       setState(() {
         _resendCountdown = 60;
-        for (final c in _otpControllers) c.clear();
+        for (final c in _otpControllers) {
+          c.clear();
+        }
         _otpFocusNodes[0].requestFocus();
       });
       _startCountdown();

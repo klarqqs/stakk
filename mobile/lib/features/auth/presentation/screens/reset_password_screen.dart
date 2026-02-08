@@ -32,8 +32,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
   @override
   void dispose() {
-    for (final c in _otpControllers) c.dispose();
-    for (final n in _otpFocusNodes) n.dispose();
+    for (final c in _otpControllers) {
+      c.dispose();
+    }
+    for (final n in _otpFocusNodes) {
+      n.dispose();
+    }
     _passwordController.dispose();
     _confirmController.dispose();
     super.dispose();
