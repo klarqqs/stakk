@@ -66,7 +66,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             children: [
               Text(
                 'Almost there',
-                style: AppTheme.header(fontSize: 24, fontWeight: FontWeight.w700),
+                style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(

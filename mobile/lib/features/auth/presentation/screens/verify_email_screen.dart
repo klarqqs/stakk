@@ -138,7 +138,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
             children: [
               Text(
                 'Verify your email',
-                style: AppTheme.header(fontSize: 24, fontWeight: FontWeight.w700),
+                style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(

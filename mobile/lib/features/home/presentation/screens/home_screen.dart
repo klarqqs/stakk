@@ -98,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(
                             'Stakk',
-                            style: AppTheme.header(fontSize: 22, fontWeight: FontWeight.w700),
+                            style: AppTheme.header(context: context, fontSize: 22, fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -142,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               const SizedBox(height: 8),
                               Text(
                                 '\$${_balance!.usdc.toStringAsFixed(2)}',
-                                style: AppTheme.header(fontSize: 36, fontWeight: FontWeight.w700, color: const Color(0xFF4F46E5)),
+                                style: AppTheme.header(context: context, fontSize: 36, fontWeight: FontWeight.w700, color: const Color(0xFF4F46E5)),
                               ),
                               Text(
                                 'USDC',
@@ -210,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Text(
                               'Recent Transactions',
-                              style: AppTheme.header(fontSize: 16, fontWeight: FontWeight.w600),
+                              style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(height: 16),
                             if (_transactions.isEmpty)
@@ -270,7 +270,7 @@ class _FundOptionsSheet extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               'Fund your wallet',
-              style: AppTheme.header(fontSize: 20, fontWeight: FontWeight.w700),
+              style: AppTheme.header(context: context, fontSize: 20, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
@@ -384,7 +384,7 @@ class _UsdcWalletSheet extends StatelessWidget {
                 const SizedBox(height: 20),
                 Text(
                   'Fund via USDC',
-                  style: AppTheme.header(fontSize: 20, fontWeight: FontWeight.w700),
+                  style: AppTheme.header(context: context, fontSize: 20, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -503,7 +503,7 @@ class _SendOptionsSheet extends StatelessWidget {
             const SizedBox(height: 20),
             Text(
               'Send / Withdraw',
-              style: AppTheme.header(fontSize: 20, fontWeight: FontWeight.w700),
+              style: AppTheme.header(context: context, fontSize: 20, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
             Text(
@@ -601,7 +601,7 @@ class _OptionTile extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: AppTheme.header(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -634,6 +634,9 @@ class _WithdrawToBankSheet extends StatefulWidget {
   State<_WithdrawToBankSheet> createState() => _WithdrawToBankSheetState();
 }
 
+/// NGN to USD rate (matches backend NGN_USD_RATE)
+const double _ngnUsdRate = 1580;
+
 class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
   List<Bank> _banks = [];
   Bank? _selectedBank;
@@ -643,18 +646,26 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
   bool _banksLoading = true;
   String? _error;
 
+  void _onAmountChanged() => setState(() {});
+
   @override
   void initState() {
     super.initState();
     _loadBanks();
+    _amountController.addListener(_onAmountChanged);
   }
 
   @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
     _accountController.dispose();
     _amountController.dispose();
     super.dispose();
   }
+
+  double? get _ngnAmount => double.tryParse(_amountController.text.trim());
+  double get _usdcEquivalent =>
+      (_ngnAmount ?? 0) > 0 ? (_ngnAmount! / _ngnUsdRate) : 0.0;
 
   Future<void> _loadBanks() async {
     setState(() => _banksLoading = true);
@@ -691,7 +702,7 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
       setState(() => _error = 'Minimum 100 NGN');
       return;
     }
-    final usdcNeeded = ngn / 1580; // Use rate - backend uses NGN_USD_RATE
+    final usdcNeeded = ngn / _ngnUsdRate;
     if (usdcNeeded > widget.balance) {
       setState(() => _error = 'Insufficient balance');
       return;
@@ -765,7 +776,7 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
                 const SizedBox(height: 20),
                 Text(
                   'Withdraw to NGN Bank',
-                  style: AppTheme.header(fontSize: 20, fontWeight: FontWeight.w700),
+                  style: AppTheme.header(context: context, fontSize: 20, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -812,6 +823,27 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  if (_usdcEquivalent > 0) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFC7D2FE)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, size: 18, color: const Color(0xFF4F46E5)),
+                          const SizedBox(width: 8),
+                          Text(
+                            '≈ \$${_usdcEquivalent.toStringAsFixed(2)} USDC will be deducted',
+                            style: AppTheme.body(context: context, fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF4F46E5)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (_error != null) ...[
                     const SizedBox(height: 12),
                     Text(
@@ -953,7 +985,7 @@ class _WithdrawToUsdcSheetState extends State<_WithdrawToUsdcSheet> {
                 const SizedBox(height: 20),
                 Text(
                   'Send to USDC Wallet',
-                  style: AppTheme.header(fontSize: 20, fontWeight: FontWeight.w700),
+                  style: AppTheme.header(context: context, fontSize: 20, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -1145,7 +1177,7 @@ class _VirtualAccountBottomSheetState extends State<_VirtualAccountBottomSheet> 
                 const SizedBox(height: 20),
                 Text(
                   'NGN Virtual Account',
-                  style: AppTheme.header(fontSize: 20, fontWeight: FontWeight.w700),
+                  style: AppTheme.header(context: context, fontSize: 20, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 Text(

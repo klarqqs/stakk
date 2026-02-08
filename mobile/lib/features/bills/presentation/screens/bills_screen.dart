@@ -94,7 +94,7 @@ class _BillsScreenState extends State<BillsScreen> {
                     children: [
                       Text(
                         'Bills',
-                        style: AppTheme.header(fontSize: 22, fontWeight: FontWeight.w700),
+                        style: AppTheme.header(context: context, fontSize: 22, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -119,7 +119,7 @@ class _BillsScreenState extends State<BillsScreen> {
                               ),
                               Text(
                                 '\$${_balance!.usdc.toStringAsFixed(2)} USDC',
-                                style: AppTheme.header(fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFF4F46E5)),
+                                style: AppTheme.header(context: context, fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFF4F46E5)),
                               ),
                             ],
                           ),
@@ -153,7 +153,7 @@ class _BillsScreenState extends State<BillsScreen> {
                       const SizedBox(height: 24),
                       Text(
                         'Select service',
-                        style: AppTheme.header(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 12),
                       if (_categories.isEmpty)
@@ -233,7 +233,7 @@ class _BillTile extends StatelessWidget {
                   children: [
                     Text(
                       category.name,
-                      style: AppTheme.header(fontSize: 16, fontWeight: FontWeight.w600),
+                      style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -412,7 +412,7 @@ class _PayBillSheetState extends State<_PayBillSheet> {
                 const SizedBox(height: 20),
                 Text(
                   widget.category.name,
-                  style: AppTheme.header(fontSize: 20, fontWeight: FontWeight.w700),
+                  style: AppTheme.header(context: context, fontSize: 20, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),
                 Text(

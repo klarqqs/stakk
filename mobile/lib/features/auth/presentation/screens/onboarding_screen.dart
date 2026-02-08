@@ -154,7 +154,7 @@ class _OnboardingPage extends StatelessWidget {
           const SizedBox(height: 32),
           Text(
             title,
-            style: AppTheme.header(fontSize: 24, fontWeight: FontWeight.w700),
+            style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),

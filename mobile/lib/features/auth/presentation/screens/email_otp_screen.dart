@@ -193,7 +193,7 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
             children: [
               Text(
                 _step == 'email' ? 'Sign in with Email' : 'Enter Code',
-                style: AppTheme.header(fontSize: 24, fontWeight: FontWeight.w700),
+                style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(

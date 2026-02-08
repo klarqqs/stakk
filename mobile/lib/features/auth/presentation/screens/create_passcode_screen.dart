@@ -52,12 +52,12 @@ class _CreatePasscodeScreenState extends State<CreatePasscodeScreen> {
               const SizedBox(height: 48),
               Text(
                 'Create passcode',
-                style: AppTheme.header(fontSize: 24, fontWeight: FontWeight.w700),
+                style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(
                 'Use a 4-digit passcode to unlock the app',
-                style: AppTheme.body(fontSize: 15, color: const Color(0xFF6B7280)),
+                style: AppTheme.body(context: context, fontSize: 15),
               ),
               const SizedBox(height: 48),
               Row(
@@ -173,7 +173,7 @@ class _PadButton extends StatelessWidget {
                 ? Icon(icon, size: 28, color: const Color(0xFF374151))
                 : Text(
                     label!,
-                    style: AppTheme.header(fontSize: 28, fontWeight: FontWeight.w500),
+                    style: AppTheme.header(context: context, fontSize: 28, fontWeight: FontWeight.w500),
                   ),
           ),
         ),

@@ -16,7 +16,7 @@ class InvestScreen extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 'Invest',
-                style: AppTheme.header(fontSize: 24, fontWeight: FontWeight.w700),
+                style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),
               Text(
