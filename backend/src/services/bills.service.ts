@@ -137,20 +137,66 @@ class BillsService {
       }));
   }
 
-  /** Get providers (billers) for a category */
+  /** Map top-bill-category code to biller_name in bill-categories */
+  private static readonly CATEGORY_TO_BILLER_NAME: Record<string, string[]> = {
+    AIRTIME: ['AIRTIME'],
+    MOBILEDATA: ['MOBILEDATA', 'DATA', 'MOBILE DATA'],
+    CABLEBILLS: ['CABLEBILLS', 'CABLE', 'CABLE TV'],
+    INTSERVICE: ['INTSERVICE', 'INTERNET'],
+    UTILITYBILLS: ['UTILITYBILLS', 'UTILITY', 'PREPAID', 'POSTPAID', 'ELECTRICITY'],
+    TAX: ['TAX'],
+    DONATIONS: ['DONATIONS'],
+    TRANSLOG: ['TRANSLOG', 'TRANSPORT'],
+    DEALPAY: ['DEALPAY'],
+    RELINST: ['RELINST'],
+    SCHPB: ['SCHPB'],
+  };
+
+  /** Get providers (billers) for a category. Uses bill-categories for accurate MTN/GLO/Airtel for airtime. */
   async getProviders(categoryCode: string) {
+    const codeUpper = categoryCode.toUpperCase().trim();
+    const billerNames = BillsService.CATEGORY_TO_BILLER_NAME[codeUpper] ?? [codeUpper];
+
+    // 1. Try bill-categories – returns MTN, GLO, Airtel etc. for AIRTIME (billers API can return wrong billers)
+    try {
+      const catRes = await flwFetch<{ status?: string; data?: BillerItem[] }>('/bill-categories?country=NG');
+      if (catRes?.status === 'success' && Array.isArray(catRes.data)) {
+        const filtered = catRes.data.filter((b) => {
+          const country = b.country ?? b.country_code ?? 'NG';
+          if (country !== 'NG') return false;
+          const bn = (b.biller_name ?? b.name ?? '').toUpperCase();
+          return billerNames.some((expected) => bn === expected || bn.includes(expected));
+        });
+        if (filtered.length > 0) {
+          return filtered.map((b, i) => ({
+            id: b.id ?? i + 1,
+            billerCode: b.biller_code ?? b.code ?? '',
+            name: b.name ?? b.short_name ?? '',
+            shortName: b.short_name ?? b.name ?? '',
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('bill-categories for providers failed, trying billers:', (e as Error).message);
+    }
+
+    // 2. Fallback to billers API
     const res = await flwFetch<{ status?: string; data?: Array<{ id?: number; name?: string; biller_code?: string; short_name?: string; country_code?: string }> }>(`/billers?category=${encodeURIComponent(categoryCode)}&country=NG`);
     if (res?.status !== 'success' || !Array.isArray(res.data)) {
       throw new Error((res as { message?: string })?.message || 'Failed to fetch providers');
     }
-    return res.data
-      .filter((b) => (b.country_code ?? 'NG') === 'NG')
-      .map((b) => ({
-        id: b.id ?? 0,
-        billerCode: b.biller_code ?? '',
-        name: b.name ?? '',
-        shortName: b.short_name ?? b.name ?? '',
-      }));
+    let filtered = res.data.filter((b) => (b.country_code ?? 'NG') === 'NG');
+    // For AIRTIME, exclude mis-categorized billers (government, tax, etc.)
+    if (codeUpper === 'AIRTIME') {
+      const exclude = /\b(government|state|tax|kogi|donation|religious|school)\b/i;
+      filtered = filtered.filter((b) => !exclude.test(b.name ?? b.short_name ?? ''));
+    }
+    return filtered.map((b, i) => ({
+      id: b.id ?? i + 1,
+      billerCode: b.biller_code ?? '',
+      name: b.name ?? '',
+      shortName: b.short_name ?? b.name ?? '',
+    }));
   }
 
   /** Get products for a provider (biller) */
