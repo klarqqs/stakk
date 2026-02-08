@@ -1,0 +1,32 @@
+import 'package:flutter/material.dart';
+import 'package:stakk_savings/core/theme/app_theme.dart';
+
+class BillsScreen extends StatelessWidget {
+  const BillsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.receipt_long_outlined, size: 64, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(height: 16),
+              Text(
+                'Bills',
+                style: AppTheme.header(fontSize: 24, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Pay bills with USDC — coming soon',
+                style: AppTheme.body(fontSize: 14, color: const Color(0xFF6B7280)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

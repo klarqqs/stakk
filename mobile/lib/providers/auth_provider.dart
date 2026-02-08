@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:stakk_savings/core/constants/storage_keys.dart';
 import '../api/api_client.dart';
 import '../api/auth_service.dart';
 
@@ -168,8 +169,8 @@ class AuthProvider extends ChangeNotifier {
       }
     } catch (_) {}
     await _api.logout();
-    await const FlutterSecureStorage().delete(key: 'passcode');
-    await const FlutterSecureStorage().delete(key: 'temp_passcode');
+    await const FlutterSecureStorage().delete(key: StorageKeys.passcode);
+    await const FlutterSecureStorage().delete(key: StorageKeys.tempPasscode);
     _user = null;
     notifyListeners();
   }
