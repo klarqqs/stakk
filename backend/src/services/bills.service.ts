@@ -127,14 +127,23 @@ class BillsService {
     throw new Error('Failed to fetch bill categories. Please check your Flutterwave API keys and IP whitelist.');
   }
 
-  /** Get top-level categories only (Airtime, Data, Electricity, TV Cable, etc.) */
+  /** Allowed bill categories: Airtime, Cable, Mobile Data, Utility Bills, Internet. Excludes Tax, Donations, Transport, etc. */
+  private static readonly ALLOWED_CATEGORY_CODES = new Set([
+    'AIRTIME',
+    'MOBILEDATA',
+    'CABLEBILLS',
+    'UTILITYBILLS',
+    'INTSERVICE',
+  ]);
+
+  /** Get top-level categories only (Airtime, Data, Electricity, TV Cable, Internet) */
   async getTopCategories() {
     const topRes = await flwFetch<{ status?: string; data?: Array<{ id?: number; code?: string; name?: string; description?: string; country_code?: string }> }>('/top-bill-categories?country=NG');
     if (topRes?.status !== 'success' || !Array.isArray(topRes.data)) {
       throw new Error((topRes as { message?: string })?.message || 'Failed to fetch categories');
     }
     return topRes.data
-      .filter((c) => (c.country_code ?? 'NG') === 'NG')
+      .filter((c) => (c.country_code ?? 'NG') === 'NG' && BillsService.ALLOWED_CATEGORY_CODES.has((c.code ?? '').toUpperCase()))
       .map((c) => ({
         id: c.id ?? 0,
         code: c.code ?? '',
@@ -187,7 +196,14 @@ class BillsService {
           productCode: p.item_code ?? '',
           name: p.short_name ?? p.name ?? '',
           amount: Number(p.amount ?? 0) || 0,
-        }));
+        }))
+        .sort((a, b) => {
+          // Products with amount 0 (custom) go last; else sort by amount ascending
+          if (a.amount === 0 && b.amount === 0) return 0;
+          if (a.amount === 0) return 1;
+          if (b.amount === 0) return -1;
+          return a.amount - b.amount;
+        });
     } catch {
       return [];
     }

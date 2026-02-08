@@ -1,10 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:stakk_savings/core/constants/app_constants.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/features/bills/domain/models/bill_models.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
+
+/// Formats amount input with commas (e.g. 100000 → 100,000)
+class _AmountInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) return newValue;
+    final parts = newValue.text.replaceAll(',', '').split('.');
+    final intPart = parts[0].replaceAll(RegExp(r'[^\d]'), '');
+    final decRaw = parts.length > 1 ? parts[1].replaceAll(RegExp(r'[^\d]'), '') : '';
+    final decPart = decRaw.length > 2 ? '.${decRaw.substring(0, 2)}' : (decRaw.isEmpty ? '' : '.$decRaw');
+    if (intPart.isEmpty) return TextEditingValue(text: decPart.isEmpty ? '' : '0$decPart', selection: TextSelection.collapsed(offset: decPart.isEmpty ? 0 : decPart.length));
+    final formatted = '${AppConstants.formatNgn(int.parse(intPart))}$decPart';
+    return TextEditingValue(text: formatted, selection: TextSelection.collapsed(offset: formatted.length));
+  }
+}
 
 class BillsPaySheet extends StatefulWidget {
   final BillCategoryModel category;
@@ -37,14 +56,18 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
   String? _error;
   String? _validatedName;
 
+  void _onAmountChanged() => setState(() {});
+
   @override
   void initState() {
     super.initState();
     _loadProducts();
+    _amountController.addListener(_onAmountChanged);
   }
 
   @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
     _customerController.dispose();
     _amountController.dispose();
     super.dispose();
@@ -75,6 +98,7 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
     if (code.contains('AIRTIME') || code.contains('DATA') || code.contains('MOBILEDATA')) return 'Mobile Number';
     if (code.contains('CABLE') || code.contains('TV')) return 'Smart Card Number';
     if (code.contains('UTILITY') || code.contains('ELECTRIC')) return 'Meter Number';
+    if (code.contains('INT') || code.contains('INTERNET')) return 'Subscription ID';
     return 'Account Number';
   }
 
@@ -94,7 +118,8 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
 
   double get _amount {
     if (_selectedProduct != null && _selectedProduct!.amount > 0) return _selectedProduct!.amount;
-    return double.tryParse(_amountController.text.trim()) ?? 0;
+    final raw = _amountController.text.trim().replaceAll(',', '');
+    return double.tryParse(raw) ?? 0;
   }
 
   Future<void> _validate() async {
@@ -152,8 +177,7 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
       setState(() => _error = 'Enter valid amount (min ₦1)');
       return;
     }
-    const ngnUsdRate = 1580.0;
-    final usdcNeeded = amount / ngnUsdRate;
+    final usdcNeeded = amount / AppConstants.ngnUsdRate;
     if (usdcNeeded > widget.balance) {
       setState(() => _error = 'Insufficient balance');
       return;
@@ -246,7 +270,13 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
                     border: const OutlineInputBorder(),
                     suffixIcon: _validatedName != null
                         ? Icon(Icons.check_circle, color: const Color(0xFF059669))
-                        : null,
+                        : IconButton(
+                            onPressed: _validating ? null : _validate,
+                            icon: _validating
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.verified_user_outlined),
+                            tooltip: 'Validate',
+                          ),
                   ),
                   inputFormatters: _isPhoneInput
                       ? [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(11)]
@@ -256,14 +286,6 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
                   const SizedBox(height: 8),
                   Text('✓ $_validatedName', style: AppTheme.body(fontSize: 13, color: const Color(0xFF059669))),
                 ],
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  onPressed: _validating ? null : _validate,
-                  icon: _validating
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.verified_user_outlined, size: 18),
-                  label: Text(_validating ? 'Validating...' : 'Validate'),
-                ),
                 const SizedBox(height: 16),
                 if (_loadingProducts)
                   const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
@@ -278,21 +300,48 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
                         selected: _selectedProduct?.id == p.id,
                         onTap: () => setState(() {
                           _selectedProduct = p;
-                          _amountController.text = p.amount > 0 ? p.amount.toStringAsFixed(0) : '';
+                          _amountController.text = p.amount > 0 ? AppConstants.formatNgn(p.amount.round()) : '';
                         }),
                       )),
                   const SizedBox(height: 8),
                 ],
                 TextField(
                   controller: _amountController,
+                  readOnly: _selectedProduct != null && _selectedProduct!.amount > 0,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
                     labelText: _products.isNotEmpty && _selectedProduct == null ? 'Or enter amount (NGN)' : 'Amount (NGN)',
                     hintText: 'e.g. 500',
                     border: const OutlineInputBorder(),
                   ),
+                  inputFormatters: [
+                    _AmountInputFormatter(),
+                  ],
                   onChanged: (_) => setState(() => _selectedProduct = null),
                 ),
+                if (_amount >= 1) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFC7D2FE)),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: const Color(0xFF4F46E5)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '≈ \$${(_amount / AppConstants.ngnUsdRate).toStringAsFixed(2)} USDC will be deducted',
+                            style: AppTheme.body(context: context, fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF4F46E5)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (_error != null) ...[
                   const SizedBox(height: 12),
                   Text(_error!, style: AppTheme.body(fontSize: 14, color: const Color(0xFFDC2626))),
@@ -354,7 +403,7 @@ class _ProductTile extends StatelessWidget {
                 ),
               ),
               Text(
-                product.amount > 0 ? '₦${product.amount.toStringAsFixed(0)}' : 'Custom',
+                product.amount > 0 ? '₦${AppConstants.formatNgn(product.amount.round())}' : 'Custom',
                 style: AppTheme.body(fontSize: 14, fontWeight: FontWeight.w600),
               ),
             ],

@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary
+  // Primary (royal blue, premium fintech)
   static const Color primary = Color(0xFF4F46E5);
   static const Color primaryDark = Color(0xFF6366F1);
+  static const Color primaryLight = Color(0xFF818CF8);
 
   // Surface
   static const Color surfaceLight = Color(0xFFFFFFFF);
@@ -33,4 +34,10 @@ class AppColors {
   static const Color success = Color(0xFF059669);
   static const Color successBackground = Color(0xFFF0FDF4);
   static const Color successBorder = Color(0xFFBBF7D0);
+
+  // Soft gradients (Apple-like backgrounds)
+  static const Color gradientStartLight = Color(0xFFF8FAFC);
+  static const Color gradientEndLight = Color(0xFFEDE9FE);
+  static const Color gradientStartDark = Color(0xFF1F2937);
+  static const Color gradientEndDark = Color(0xFF312E81);
 }

@@ -19,6 +19,22 @@ class AppTheme {
     return brightness == Brightness.dark;
   }
 
+  /// Headline: large, bold. Use for hero text.
+  static TextStyle headline({
+    BuildContext? context,
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    Brightness? brightness,
+  }) {
+    final isDark = _isDark(context, brightness);
+    return GoogleFonts.unbounded(
+      fontSize: fontSize ?? 28,
+      fontWeight: fontWeight ?? FontWeight.w700,
+      color: color ?? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
+    );
+  }
+
   /// Header font: Unbounded. Pass [context] for theme-aware colors on dark/light.
   static TextStyle header({
     BuildContext? context,
@@ -30,6 +46,22 @@ class AppTheme {
     final isDark = _isDark(context, brightness);
     return GoogleFonts.unbounded(
       fontSize: fontSize ?? 22,
+      fontWeight: fontWeight ?? FontWeight.w600,
+      color: color ?? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
+    );
+  }
+
+  /// Title: medium emphasis.
+  static TextStyle title({
+    BuildContext? context,
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    Brightness? brightness,
+  }) {
+    final isDark = _isDark(context, brightness);
+    return GoogleFonts.unbounded(
+      fontSize: fontSize ?? 18,
       fontWeight: fontWeight ?? FontWeight.w600,
       color: color ?? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
     );
@@ -48,6 +80,22 @@ class AppTheme {
       fontSize: fontSize ?? 14,
       fontWeight: fontWeight ?? FontWeight.w400,
       color: color ?? (isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+    );
+  }
+
+  /// Caption: small, muted.
+  static TextStyle caption({
+    BuildContext? context,
+    double? fontSize,
+    FontWeight? fontWeight,
+    Color? color,
+    Brightness? brightness,
+  }) {
+    final isDark = _isDark(context, brightness);
+    return GoogleFonts.fustat(
+      fontSize: fontSize ?? 12,
+      fontWeight: fontWeight ?? FontWeight.w400,
+      color: color ?? (isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight),
     );
   }
 }

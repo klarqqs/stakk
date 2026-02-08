@@ -147,6 +147,32 @@ class ApiClient {
     return list.map((e) => Bank.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  /// Resolve bank account to fetch account holder name (validate before withdrawal)
+  Future<String> resolveBankAccount({
+    required String accountNumber,
+    required String bankCode,
+  }) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/withdrawal/resolve-account'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({
+            'accountNumber': accountNumber,
+            'bankCode': bankCode,
+          }),
+        ));
+
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Account resolution failed');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return body['accountName'] as String? ?? 'Unknown';
+  }
+
   /// Withdraw USDC to NGN bank account
   Future<WithdrawToBankResult> withdrawToBank({
     required String accountNumber,

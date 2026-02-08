@@ -168,6 +168,12 @@ class AuthProvider extends ChangeNotifier {
 
   Future<List<Bank>> getBanks() => _api.getBanks();
 
+  Future<String> resolveBankAccount({
+    required String accountNumber,
+    required String bankCode,
+  }) =>
+      _api.resolveBankAccount(accountNumber: accountNumber, bankCode: bankCode);
+
   Future<WithdrawToBankResult> withdrawToBank({
     required String accountNumber,
     required String bankCode,

@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 import pool from '../config/database.ts';
 import stellarService from '../services/stellar.service.ts';
-import flutterwaveTransfer from '../services/flutterwave-transfer.service.ts';
+import flutterwaveTransfer, { normalizeBankCode } from '../services/flutterwave-transfer.service.ts';
 import { NGN_USD_RATE } from '../config/limits.ts';
 import type { AuthRequest } from '../middleware/auth.middleware.ts';
 
@@ -147,10 +147,44 @@ export class WithdrawalController {
     }
   }
 
+  /** Resolve bank account to fetch account name (validate before withdrawal) */
+  async resolveAccount(req: AuthRequest, res: Response) {
+    try {
+      const { accountNumber, bankCode } = req.body;
+      if (!accountNumber || !bankCode) {
+        return res.status(400).json({
+          error: 'accountNumber and bankCode are required',
+        });
+      }
+      const account = String(accountNumber).trim();
+      if (account.length !== 10) {
+        return res.status(400).json({ error: 'Account number must be 10 digits' });
+      }
+      const code = String(bankCode).trim();
+      const accountData = await flutterwaveTransfer.resolveAccount(account, code);
+      const accountName = (accountData as { account_name?: string })?.account_name || 'Unknown';
+      res.json({ accountName });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Account resolution failed';
+      console.error('Resolve account error:', {
+        accountNumber: req.body?.accountNumber,
+        bankCode: req.body?.bankCode,
+        error: msg,
+        fullError: error,
+      });
+      res.status(400).json({ error: msg });
+    }
+  }
+
   /** Get list of Nigerian banks for transfers */
   async getBanks(_req: AuthRequest, res: Response) {
     try {
-      const banks = await flutterwaveTransfer.getBanks();
+      const raw = await flutterwaveTransfer.getBanks();
+      const banks = (Array.isArray(raw) ? raw : []).map((b: { id?: number; code?: string; name?: string }) => ({
+        id: b.id,
+        code: normalizeBankCode(b.code ?? b.id),
+        name: b.name ?? '',
+      }));
       res.json({ banks });
     } catch (error) {
       console.error('Get banks error:', error);

@@ -77,12 +77,6 @@ class _BillsCategoriesScreenState extends State<BillsCategoriesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Bills',
-          style: AppTheme.header(context: context, fontSize: 20, fontWeight: FontWeight.w700),
-        ),
-      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _load,
@@ -92,41 +86,17 @@ class _BillsCategoriesScreenState extends State<BillsCategoriesScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Select category',
-                        style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600),
+                        'Bills',
+                        style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Pay airtime, data, DSTV, electricity with USDC',
                         style: AppTheme.body(fontSize: 14, color: const Color(0xFF6B7280)),
                       ),
-                      if (_balance != null) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9FAFB),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Available',
-                                style: AppTheme.body(fontSize: 14, color: const Color(0xFF6B7280)),
-                              ),
-                              Text(
-                                '\$${_balance!.usdc.toStringAsFixed(2)} USDC',
-                                style: AppTheme.header(context: context, fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFF4F46E5)),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
                       if (_error != null) ...[
                         const SizedBox(height: 16),
                         Container(

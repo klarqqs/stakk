@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:stakk_savings/core/components/slide_to_action/slide_to_action.dart';
+import 'package:stakk_savings/core/constants/app_constants.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
+import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
+import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
+import 'package:stakk_savings/core/utils/bank_account_validation.dart';
 import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
@@ -58,8 +63,8 @@ class _HomeScreenState extends State<HomeScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
       ),
       builder: (ctx) => _FundOptionsSheet(
         onClose: () => Navigator.of(ctx).pop(),
@@ -72,8 +77,8 @@ class _HomeScreenState extends State<HomeScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
       ),
       builder: (ctx) => _SendOptionsSheet(
         balance: _balance?.usdc ?? 0,
@@ -102,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(
                             'Stakk',
-                            style: AppTheme.header(context: context, fontSize: 22, fontWeight: FontWeight.w700),
+                            style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -123,47 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const SizedBox(height: 24),
                       ],
                       if (_balance != null) ...[
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withAlpha(10),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Your Balance',
-                                style: AppTheme.body(fontSize: 15, fontWeight: FontWeight.w500, color: const Color(0xFF6B7280)),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '\$${_balance!.usdc.toStringAsFixed(2)}',
-                                style: AppTheme.header(context: context, fontSize: 36, fontWeight: FontWeight.w700, color: const Color(0xFF4F46E5)),
-                              ),
-                              Text(
-                                'USDC',
-                                style: AppTheme.body(fontSize: 14, color: const Color(0xFF9CA3AF)),
-                              ),
-                              if (_balance!.stellarAddress != null) ...[
-                                const SizedBox(height: 12),
-                                Text(
-                                  _balance!.stellarAddress!,
-                                  style: AppTheme.body(fontSize: 11, color: const Color(0xFFD1D5DB)),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
+                        _BalanceCard(balance: _balance!),
                         const SizedBox(height: 16),
                         Row(
                           children: [
@@ -173,9 +138,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                 icon: const Icon(Icons.add_circle_outline, size: 18),
                                 label: const Text('Fund'),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF4F46E5),
-                                  side: const BorderSide(color: Color(0xFF4F46E5)),
+                                  foregroundColor: Theme.of(context).brightness == Brightness.dark
+                                      ? AppColors.primaryDark
+                                      : AppColors.primary,
+                                  side: BorderSide(
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? AppColors.primaryDark
+                                        : AppColors.primary,
+                                  ),
                                   padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppRadius.full),
+                                  ),
                                 ),
                               ),
                             ),
@@ -186,9 +160,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                 icon: const Icon(Icons.send_outlined, size: 18),
                                 label: const Text('Send'),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF4F46E5),
-                                  side: const BorderSide(color: Color(0xFF4F46E5)),
+                                  foregroundColor: Theme.of(context).brightness == Brightness.dark
+                                      ? AppColors.primaryDark
+                                      : AppColors.primary,
+                                  side: BorderSide(
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? AppColors.primaryDark
+                                        : AppColors.primary,
+                                  ),
                                   padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(AppRadius.full),
+                                  ),
                                 ),
                               ),
                             ),
@@ -199,12 +182,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(16),
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? AppColors.surfaceVariantDark
+                              : AppColors.surfaceLight,
+                          borderRadius: BorderRadius.circular(AppRadius.xl),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withAlpha(10),
-                              blurRadius: 12,
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 16,
                               offset: const Offset(0, 4),
                             ),
                           ],
@@ -235,6 +220,73 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
         ),
+      ),
+    );
+  }
+}
+
+class _BalanceCard extends StatelessWidget {
+  final WalletBalance balance;
+
+  const _BalanceCard({required this.balance});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: primary,
+        borderRadius: BorderRadius.circular(AppRadius.xxl),
+        boxShadow: [
+          BoxShadow(
+            color: primary.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Your Balance',
+            style: AppTheme.body(
+              context: context,
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              color: Colors.white.withOpacity(0.9),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '\$${balance.usdc.toStringAsFixed(2)}',
+            style: AppTheme.header(
+              context: context,
+              fontSize: 36,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          Text(
+            'USDC',
+            style: AppTheme.body(
+              context: context,
+              fontSize: 14,
+              color: Colors.white.withOpacity(0.8),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '≈ ₦${AppConstants.formatNgn((balance.usdc * AppConstants.ngnUsdRate).round())}',
+            style: AppTheme.body(
+              context: context,
+              fontSize: 14,
+              color: Colors.white.withOpacity(0.8),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -578,26 +630,32 @@ class _OptionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF2FF),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: const Color(0xFF4F46E5), size: 24),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.surfaceVariantDark : AppColors.surfaceVariantLight,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
             ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(icon, color: primary, size: 24),
+              ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -610,13 +668,14 @@ class _OptionTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: AppTheme.body(fontSize: 13, color: const Color(0xFF6B7280)),
+                    style: AppTheme.body(context: context, fontSize: 13),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right),
-          ],
+              Icon(Icons.chevron_right_rounded, color: primary),
+            ],
+          ),
         ),
       ),
     );
@@ -638,9 +697,6 @@ class _WithdrawToBankSheet extends StatefulWidget {
   State<_WithdrawToBankSheet> createState() => _WithdrawToBankSheetState();
 }
 
-/// NGN to USD rate (matches backend NGN_USD_RATE)
-const double _ngnUsdRate = 1580;
-
 class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
   List<Bank> _banks = [];
   Bank? _selectedBank;
@@ -649,19 +705,40 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
   bool _loading = false;
   bool _banksLoading = true;
   String? _error;
+  late BankAccountValidationController _validationController;
 
   void _onAmountChanged() => setState(() {});
+
+  void _onAccountOrBankChanged() {
+    setState(() => _error = null);
+    _validationController.scheduleValidation(
+      _accountController.text.trim(),
+      _selectedBank?.code ?? '',
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _loadBanks();
     _amountController.addListener(_onAmountChanged);
+    _validationController = BankAccountValidationController(
+      resolveAccount: (acc, code) async {
+        if (!mounted) throw StateError('Widget disposed');
+        return await context.read<AuthProvider>().resolveBankAccount(
+          accountNumber: acc,
+          bankCode: code,
+        );
+      },
+    );
+    _accountController.addListener(_onAccountOrBankChanged);
   }
 
   @override
   void dispose() {
     _amountController.removeListener(_onAmountChanged);
+    _accountController.removeListener(_onAccountOrBankChanged);
+    _validationController.dispose();
     _accountController.dispose();
     _amountController.dispose();
     super.dispose();
@@ -669,13 +746,14 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
 
   double? get _ngnAmount => double.tryParse(_amountController.text.trim());
   double get _usdcEquivalent =>
-      (_ngnAmount ?? 0) > 0 ? (_ngnAmount! / _ngnUsdRate) : 0.0;
+      (_ngnAmount ?? 0) > 0 ? (_ngnAmount! / AppConstants.ngnUsdRate) : 0.0;
 
   Future<void> _loadBanks() async {
     setState(() => _banksLoading = true);
     try {
       final banks = await context.read<AuthProvider>().getBanks();
       if (mounted) {
+        banks.sort((a, b) => a.name.compareTo(b.name));
         setState(() {
           _banks = banks;
           _banksLoading = false;
@@ -717,7 +795,7 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
       setState(() => _error = 'Minimum 100 NGN');
       return;
     }
-    final usdcNeeded = ngn / _ngnUsdRate;
+    final usdcNeeded = ngn / AppConstants.ngnUsdRate;
     if (usdcNeeded > widget.balance) {
       setState(() => _error = 'Insufficient balance');
       return;
@@ -806,31 +884,68 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
                 if (_banksLoading)
                   const Center(child: CircularProgressIndicator())
                 else ...[
-                  DropdownButtonFormField<Bank>(
-                    value: _selectedBank,
-                    decoration: const InputDecoration(
-                      labelText: 'Bank',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: _banks.map((b) => DropdownMenuItem(
-                      value: b,
-                      child: Text(b.name),
-                    )).toList(),
-                    onChanged: (v) => setState(() => _selectedBank = v),
+                  _BankSelector(
+                    banks: _banks,
+                    selectedBank: _selectedBank,
+                    onSelect: (b) {
+                      setState(() => _selectedBank = b);
+                      _onAccountOrBankChanged();
+                    },
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: _accountController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 10,
-                    decoration: const InputDecoration(
-                      labelText: 'Account Number',
-                      border: OutlineInputBorder(),
-                      counterText: '',
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
+                  ListenableBuilder(
+                    listenable: _validationController,
+                    builder: (_, __) {
+                      final state = _validationController.state;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextField(
+                            controller: _accountController,
+                            keyboardType: TextInputType.number,
+                            maxLength: 10,
+                            enabled: !_loading,
+                            decoration: InputDecoration(
+                              labelText: 'Account Number',
+                              border: const OutlineInputBorder(),
+                              counterText: '',
+                              suffixIcon: state.isValidating
+                                  ? Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: const Color(0xFF4F46E5),
+                                        ),
+                                      ),
+                                    )
+                                  : state.isValid
+                                      ? Icon(Icons.check_circle, color: const Color(0xFF059669))
+                                      : null,
+                            ),
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                          ),
+                          if (state.isValid && state.accountName != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              '✓ ${state.accountName}',
+                              style: AppTheme.body(fontSize: 13, color: const Color(0xFF059669)),
+                            ),
+                          ],
+                          if (state.status == BankAccountValidationStatus.error && state.errorMessage != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              state.errorMessage!,
+                              style: AppTheme.body(fontSize: 13, color: const Color(0xFFDC2626)),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -871,23 +986,158 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
                     ),
                   ],
                   const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF4F46E5),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white)) : const Text('Withdraw'),
-                    ),
+                  ListenableBuilder(
+                    listenable: _validationController,
+                    builder: (_, __) {
+                      final canSubmit = _validationController.state.isValid &&
+                          _ngnAmount != null &&
+                          _ngnAmount! >= 100 &&
+                          (_usdcEquivalent) <= widget.balance;
+                      return SlideToAction(
+                        label: 'Slide to withdraw',
+                        onComplete: _submit,
+                        disabled: !canSubmit,
+                        isLoading: _loading,
+                      );
+                    },
                   ),
                 ],
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _BankSelector extends StatelessWidget {
+  final List<Bank> banks;
+  final Bank? selectedBank;
+  final ValueChanged<Bank> onSelect;
+
+  const _BankSelector({
+    required this.banks,
+    required this.selectedBank,
+    required this.onSelect,
+  });
+
+  void _showBankPicker(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _BankPickerSheet(
+        banks: banks,
+        selectedBank: selectedBank,
+        onSelect: (b) {
+          onSelect(b);
+          Navigator.of(ctx).pop();
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => _showBankPicker(context),
+      borderRadius: BorderRadius.circular(4),
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'Bank',
+          border: OutlineInputBorder(),
+          suffixIcon: Icon(Icons.arrow_drop_down),
+        ),
+        child: Text(
+          selectedBank?.name ?? 'Select bank',
+          style: AppTheme.body(
+            fontSize: 16,
+            color: selectedBank != null ? null : const Color(0xFF9CA3AF),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BankPickerSheet extends StatefulWidget {
+  final List<Bank> banks;
+  final Bank? selectedBank;
+  final ValueChanged<Bank> onSelect;
+
+  const _BankPickerSheet({
+    required this.banks,
+    required this.selectedBank,
+    required this.onSelect,
+  });
+
+  @override
+  State<_BankPickerSheet> createState() => _BankPickerSheetState();
+}
+
+class _BankPickerSheetState extends State<_BankPickerSheet> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() => setState(() => _query = _searchController.text.trim().toLowerCase()));
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Bank> get _filteredBanks {
+    if (_query.isEmpty) return widget.banks;
+    return widget.banks.where((b) => b.name.toLowerCase().contains(_query)).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (_, scrollController) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search banks...',
+                prefixIcon: const Icon(Icons.search),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              autofocus: true,
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              controller: scrollController,
+              itemCount: _filteredBanks.length,
+              itemBuilder: (_, i) {
+                final bank = _filteredBanks[i];
+                final isSelected = widget.selectedBank?.code == bank.code;
+                return ListTile(
+                  title: Text(bank.name),
+                  trailing: isSelected ? const Icon(Icons.check, color: Color(0xFF4F46E5)) : null,
+                  onTap: () => widget.onSelect(bank),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -914,8 +1164,19 @@ class _WithdrawToUsdcSheetState extends State<_WithdrawToUsdcSheet> {
   bool _loading = false;
   String? _error;
 
+  void _onFieldChanged() => setState(() {});
+
+  @override
+  void initState() {
+    super.initState();
+    _addressController.addListener(_onFieldChanged);
+    _amountController.addListener(_onFieldChanged);
+  }
+
   @override
   void dispose() {
+    _addressController.removeListener(_onFieldChanged);
+    _amountController.removeListener(_onFieldChanged);
     _addressController.dispose();
     _amountController.dispose();
     super.dispose();
@@ -1039,21 +1300,18 @@ class _WithdrawToUsdcSheetState extends State<_WithdrawToUsdcSheet> {
                   const SizedBox(height: 12),
                   Text(
                     _error!,
-                    style: AppTheme.body(fontSize: 14, color: const Color(0xFFDC2626)),
+                    style: AppTheme.body(fontSize: 14, color: AppColors.error),
                   ),
                 ],
                 const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F46E5),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: _loading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white)) : const Text('Send USDC'),
-                  ),
+                SlideToAction(
+                  label: 'Slide to send',
+                  onComplete: _submit,
+                  disabled: _addressController.text.trim().length < 20 ||
+                      !_addressController.text.trim().startsWith('G') ||
+                      (double.tryParse(_amountController.text.trim()) ?? 0) < 0.01 ||
+                      (double.tryParse(_amountController.text.trim()) ?? 0) > widget.balance,
+                  isLoading: _loading,
                 ),
               ],
             ),
