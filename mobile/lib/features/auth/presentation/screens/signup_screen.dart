@@ -95,7 +95,13 @@ class _SignupScreenState extends State<SignupScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            final email = _emailController.text.trim();
+            Navigator.of(context).pushReplacementNamed(
+              '/auth/check-email',
+              arguments: email.isNotEmpty ? email : null,
+            );
+          },
         ),
       ),
       body: SafeArea(

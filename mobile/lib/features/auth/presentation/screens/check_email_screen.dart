@@ -17,6 +17,16 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
   String? _error;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    final email = args is String ? args : null;
+    if (email != null && _emailController.text != email) {
+      _emailController.text = email;
+    }
+  }
+
+  @override
   void dispose() {
     _emailController.dispose();
     super.dispose();
