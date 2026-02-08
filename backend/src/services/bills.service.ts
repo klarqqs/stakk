@@ -54,22 +54,6 @@ async function flwFetch<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** Fallback Nigerian bill categories when all Flutterwave APIs fail */
-const FALLBACK_CATEGORIES: Record<string, unknown>[] = [
-  { id: 1, biller_code: 'BIL099', name: 'MTN Nigeria', biller_name: 'AIRTIME', item_code: 'AT099', short_name: 'MTN', label_name: 'Mobile Number', is_airtime: true, country: 'NG' },
-  { id: 2, biller_code: 'BIL099', name: 'GLO Nigeria', biller_name: 'AIRTIME', item_code: 'AT099', short_name: 'GLO', label_name: 'Mobile Number', is_airtime: true, country: 'NG' },
-  { id: 3, biller_code: 'BIL099', name: '9Mobile', biller_name: 'AIRTIME', item_code: 'AT099', short_name: '9MOBILE', label_name: 'Mobile Number', is_airtime: true, country: 'NG' },
-  { id: 4, biller_code: 'BIL099', name: 'Airtel Nigeria', biller_name: 'AIRTIME', item_code: 'AT099', short_name: 'AIRTEL', label_name: 'Mobile Number', is_airtime: true, country: 'NG' },
-  { id: 7, biller_code: 'BIL119', name: 'DSTV Payment', biller_name: 'DSTV', item_code: 'CB141', short_name: 'DSTV', label_name: 'Smart Card Number', is_airtime: false, country: 'NG' },
-  { id: 8, biller_code: 'BIL119', name: 'GOtv', biller_name: 'GOTV', item_code: 'CB142', short_name: 'GOTV', label_name: 'Smart Card Number', is_airtime: false, country: 'NG' },
-  { id: 13, biller_code: 'BIL110', name: 'EKO PREPAID', biller_name: 'EKEDC PREPAID TOPUP', item_code: 'UB134', short_name: 'EKEDC', label_name: 'Meter Number', is_airtime: false, country: 'NG' },
-  { id: 14, biller_code: 'BIL110', name: 'IKEJA PREPAID', biller_name: 'IKEDC PREPAID TOPUP', item_code: 'UB133', short_name: 'IKEDC', label_name: 'Meter Number', is_airtime: false, country: 'NG' },
-  { id: 15, biller_code: 'BIL108', name: 'MTN Data', biller_name: 'MTN DATA', item_code: 'DT101', short_name: 'MTN-DATA', label_name: 'Mobile Number', is_airtime: false, country: 'NG' },
-  { id: 16, biller_code: 'BIL108', name: 'GLO Data', biller_name: 'GLO DATA', item_code: 'DT102', short_name: 'GLO-DATA', label_name: 'Mobile Number', is_airtime: false, country: 'NG' },
-  { id: 17, biller_code: 'BIL108', name: 'Airtel Data', biller_name: 'AIRTEL DATA', item_code: 'DT103', short_name: 'AIRTEL-DATA', label_name: 'Mobile Number', is_airtime: false, country: 'NG' },
-  { id: 18, biller_code: 'BIL108', name: '9Mobile Data', biller_name: '9MOBILE DATA', item_code: 'DT104', short_name: '9MOBILE-DATA', label_name: 'Mobile Number', is_airtime: false, country: 'NG' },
-];
-
 /** Bill payments via Flutterwave: Airtime, Data, Cable TV, Electricity */
 class BillsService {
   /** Get bill categories (airtime, DSTV, electricity, etc.) for Nigeria */
@@ -126,8 +110,7 @@ class BillsService {
       console.warn('Top-bill-categories + billers flow failed:', (err as Error).message);
     }
 
-    // 4. Fallback: hardcoded Nigerian billers
-    return FALLBACK_CATEGORIES;
+    throw new Error('Failed to fetch bill categories. Please check your Flutterwave API keys and IP whitelist.');
   }
 
   /** Validate customer (meter number, smartcard, phone) before payment */

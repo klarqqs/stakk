@@ -210,7 +210,8 @@ class ApiClient {
       throw ApiException('Session expired');
     }
     if (res.statusCode != 200) {
-      throw ApiException('Failed to fetch bill categories');
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch bill categories');
     }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final list = body['categories'] as List<dynamic>? ?? [];

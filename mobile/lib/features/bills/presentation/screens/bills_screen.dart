@@ -150,26 +150,28 @@ class _BillsScreenState extends State<BillsScreen> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 24),
-                      Text(
-                        'Select service',
-                        style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 12),
-                      if (_categories.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 32),
-                          child: Text(
-                            'No bill services available',
-                            textAlign: TextAlign.center,
-                            style: AppTheme.body(fontSize: 14, color: const Color(0xFF9CA3AF)),
-                          ),
-                        )
-                      else
-                        ..._categories.map((c) => _BillTile(
+                      if (_error == null) ...[
+                        const SizedBox(height: 24),
+                        Text(
+                          'Select service',
+                          style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 12),
+                        if (_categories.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 32),
+                            child: Text(
+                              'No bill services available',
+                              textAlign: TextAlign.center,
+                              style: AppTheme.body(fontSize: 14, color: const Color(0xFF9CA3AF)),
+                            ),
+                          )
+                        else
+                          ..._categories.map((c) => _BillTile(
                               category: c,
                               onTap: () => _openPaySheet(c),
                             )),
+                      ],
                     ],
                   ),
                 ),
