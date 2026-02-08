@@ -9,6 +9,12 @@ import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
 import 'package:stakk_savings/core/utils/bank_account_validation.dart';
 import 'package:stakk_savings/api/api_client.dart';
+import 'package:stakk_savings/features/goals/presentation/screens/goals_screen.dart';
+import 'package:stakk_savings/features/lock/presentation/screens/lock_screen.dart';
+import 'package:stakk_savings/features/notifications/presentation/screens/notifications_screen.dart';
+import 'package:stakk_savings/features/referrals/presentation/screens/referrals_screen.dart';
+import 'package:stakk_savings/features/send/presentation/screens/p2p_history_screen.dart';
+import 'package:stakk_savings/features/send/presentation/screens/send_p2p_screen.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -23,6 +29,11 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _error;
   WalletBalance? _balance;
   List<Transaction> _transactions = [];
+  List<P2pTransfer> _p2pTransfers = [];
+  int _unreadNotifications = 0;
+  BlendEarningsResponse? _blendEarnings;
+  BlendApyResponse? _blendApy;
+  List<SavingsGoal> _goals = [];
 
   @override
   void initState() {
@@ -41,10 +52,20 @@ class _HomeScreenState extends State<HomeScreen> {
       final results = await Future.wait([
         auth.getBalance(),
         auth.getTransactions(),
+        auth.p2pGetHistory().catchError((_) => <P2pTransfer>[]),
+        auth.notificationsGetUnreadCount().catchError((_) => 0),
+        auth.getBlendEarnings().catchError((_) => BlendEarningsResponse(supplied: 0, earned: 0, currentAPY: 5.5, totalValue: 0, isEarning: false)),
+        auth.getBlendApy().catchError((_) => BlendApyResponse(apy: '5.5', raw: 5.5)),
+        auth.goalsGetAll().catchError((_) => <SavingsGoal>[]),
       ]);
       setState(() {
         _balance = results[0] as WalletBalance;
         _transactions = (results[1] as TransactionsResponse).transactions;
+        _p2pTransfers = results[2] as List<P2pTransfer>;
+        _unreadNotifications = results[3] as int;
+        _blendEarnings = results[4] as BlendEarningsResponse?;
+        _blendApy = results[5] as BlendApyResponse?;
+        _goals = results[6] as List<SavingsGoal>;
       });
     } on ApiException catch (e) {
       if (e.message == 'Session expired') {
@@ -109,6 +130,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             'Stakk',
                             style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
                           ),
+                          IconButton(
+                            icon: Badge(
+                              label: _unreadNotifications > 0 ? Text('$_unreadNotifications') : null,
+                              child: const Icon(Icons.notifications_outlined),
+                            ),
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())).then((_) => _load()),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 32),
@@ -129,6 +157,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                       if (_balance != null) ...[
                         _BalanceCard(balance: _balance!),
+                        const SizedBox(height: 16),
+                        _BlendEarningsCard(
+                          earnings: _blendEarnings,
+                          apy: _blendApy,
+                          balance: _balance!.usdc,
+                          onRefresh: _load,
+                        ),
                         const SizedBox(height: 16),
                         Row(
                           children: [
@@ -177,7 +212,78 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 20),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            _QuickActionChip(
+                              icon: Icons.flag_outlined,
+                              label: 'Goals',
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GoalsScreen())),
+                            ),
+                            _QuickActionChip(
+                              icon: Icons.lock_outline,
+                              label: 'Lock',
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LockScreen(balance: _balance?.usdc ?? 0))),
+                            ),
+                            _QuickActionChip(
+                              icon: Icons.people_outline,
+                              label: 'Referrals',
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReferralsScreen())),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 24),
+                        if (_goals.isNotEmpty) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Savings Goals', style: AppTheme.title(context: context, fontSize: 18)),
+                              TextButton(
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GoalsScreen())),
+                                child: const Text('See all'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 120,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _goals.length,
+                              separatorBuilder: (_, __) => const SizedBox(width: 12),
+                              itemBuilder: (context, i) {
+                                final g = _goals[i];
+                                return _GoalCardMini(
+                                  goal: g,
+                                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GoalsScreen())),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                        if (_p2pTransfers.isNotEmpty) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Recent P2P',
+                                style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(builder: (_) => const P2pHistoryScreen()),
+                                ),
+                                child: const Text('See all'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          ..._p2pTransfers.take(5).map((t) => _P2pTransferRow(transfer: t)),
+                          const SizedBox(height: 24),
+                        ],
                       ],
                       Container(
                         padding: const EdgeInsets.all(24),
@@ -232,18 +338,20 @@ class _BalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: primary,
-        borderRadius: BorderRadius.circular(AppRadius.xxl),
+        gradient: const LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryGradientEnd],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         boxShadow: [
           BoxShadow(
-            color: primary.withOpacity(0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: AppColors.primary.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -254,39 +362,241 @@ class _BalanceCard extends StatelessWidget {
             'Your Balance',
             style: AppTheme.body(
               context: context,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
           const SizedBox(height: 8),
           Text(
             '\$${balance.usdc.toStringAsFixed(2)}',
-            style: AppTheme.header(
+            style: AppTheme.balance(
               context: context,
               fontSize: 36,
               fontWeight: FontWeight.w700,
               color: Colors.white,
             ),
           ),
-          // Text(
-          //   'USDC',
-          //   style: AppTheme.body(
-          //     context: context,
-          //     fontSize: 14,
-          //     color: Colors.white.withOpacity(0.8),
-          //   ),
-          // ),
           const SizedBox(height: 6),
           Text(
             '≈ ₦${AppConstants.formatNgn((balance.usdc * AppConstants.ngnUsdRate).round())}',
-            style: AppTheme.header(
+            style: AppTheme.caption(
               context: context,
               fontSize: 14,
-              color: Colors.white.withOpacity(0.8),
+              color: Colors.white.withValues(alpha: 0.8),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BlendEarningsCard extends StatelessWidget {
+  final BlendEarningsResponse? earnings;
+  final BlendApyResponse? apy;
+  final double balance;
+  final VoidCallback onRefresh;
+
+  const _BlendEarningsCard({
+    required this.earnings,
+    required this.apy,
+    required this.balance,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isEarning = (earnings?.supplied ?? 0) > 0;
+    final apyStr = apy?.apy ?? '5.5';
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceVariantDark : Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.trending_up, color: AppColors.success, size: 24),
+                  const SizedBox(width: 8),
+                  Text(
+                    isEarning ? 'Earning $apyStr% APY' : 'Blend Earnings',
+                    style: AppTheme.body(context: context, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+              if (isEarning)
+                Text(
+                  'On \$${(earnings?.supplied ?? 0).toStringAsFixed(2)} USDC',
+                  style: AppTheme.caption(context: context, fontSize: 13),
+                ),
+            ],
+          ),
+          if (isEarning && (earnings?.earned ?? 0) > 0) ...[
+            const SizedBox(height: 12),
+            Text(
+              "You've earned \$${(earnings?.earned ?? 0).toStringAsFixed(2)}",
+              style: AppTheme.body(context: context, fontSize: 14, color: AppColors.success),
+            ),
+          ],
+          if (!isEarning) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Earn 5-8% APY on your USDC',
+              style: AppTheme.caption(context: context),
+            ),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => _showBlendSheet(context),
+              child: Text(isEarning ? 'Manage' : 'Start Earning'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBlendSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
+      ),
+      builder: (ctx) => _BlendSheet(
+        balance: balance,
+        earnings: earnings,
+        apy: apy,
+        onSuccess: () {
+          Navigator.pop(ctx);
+          onRefresh();
+        },
+        onClose: () => Navigator.pop(ctx),
+      ),
+    );
+  }
+}
+
+class _BlendSheet extends StatefulWidget {
+  final double balance;
+  final BlendEarningsResponse? earnings;
+  final BlendApyResponse? apy;
+  final VoidCallback onSuccess;
+  final VoidCallback onClose;
+
+  const _BlendSheet({
+    required this.balance,
+    required this.earnings,
+    required this.apy,
+    required this.onSuccess,
+    required this.onClose,
+  });
+
+  @override
+  State<_BlendSheet> createState() => _BlendSheetState();
+}
+
+class _BlendSheetState extends State<_BlendSheet> {
+  final _amountController = TextEditingController();
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enable() async {
+    final amt = double.tryParse(_amountController.text) ?? 0;
+    if (amt <= 0 || amt > widget.balance) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter valid amount')));
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await context.read<AuthProvider>().blendEnable(amt);
+      widget.onSuccess();
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _disable() async {
+    final supplied = widget.earnings?.supplied ?? 0;
+    if (supplied <= 0) return;
+    setState(() => _loading = true);
+    try {
+      await context.read<AuthProvider>().blendDisable(supplied);
+      widget.onSuccess();
+    } on ApiException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final supplied = widget.earnings?.supplied ?? 0;
+    final isEarning = supplied > 0;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Blend Earnings', style: AppTheme.header(context: context, fontSize: 20)),
+            Text('Earn ${widget.apy?.apy ?? '5.5'}% APY on USDC', style: AppTheme.caption(context: context)),
+            const SizedBox(height: 24),
+            if (isEarning) ...[
+              Text('Supplied: \$${supplied.toStringAsFixed(2)}', style: AppTheme.body(context: context)),
+              Text('Earned: \$${(widget.earnings?.earned ?? 0).toStringAsFixed(2)}', style: AppTheme.body(context: context)),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _loading ? null : _disable,
+                child: _loading ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Withdraw All'),
+              ),
+            ] else ...[
+              TextField(
+                controller: _amountController,
+                decoration: InputDecoration(
+                  labelText: 'Amount (USDC)',
+                  hintText: 'Balance: \$${widget.balance.toStringAsFixed(2)}',
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _loading ? null : _enable,
+                child: _loading ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Start Earning'),
+              ),
+            ],
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: widget.onClose, child: const Text('Cancel')),
+          ],
+        ),
       ),
     );
   }
@@ -567,6 +877,23 @@ class _SendOptionsSheet extends StatelessWidget {
               style: AppTheme.body(fontSize: 14, color: const Color(0xFF6B7280)),
             ),
             const SizedBox(height: 24),
+            _OptionTile(
+              icon: Icons.person_outline,
+              title: 'Send to Stakk User',
+              subtitle: 'Instant USDC transfer to another user',
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (ctx) => SendP2pScreen(
+                      balance: balance,
+                      onSuccess: onSuccess,
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 12),
             _OptionTile(
               icon: Icons.account_balance_outlined,
               title: 'NGN Bank Account',
@@ -1638,6 +1965,131 @@ class _DetailRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GoalCardMini extends StatelessWidget {
+  final SavingsGoal goal;
+  final VoidCallback onTap;
+
+  const _GoalCardMini({required this.goal, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 160,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceVariantDark : Colors.white,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(goal.name, style: AppTheme.body(context: context, fontSize: 15, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                LinearProgressIndicator(value: goal.progress, minHeight: 6, borderRadius: BorderRadius.circular(3)),
+                Text('\$${goal.currentAmount.toStringAsFixed(0)} / \$${goal.targetAmount.toStringAsFixed(0)}', style: AppTheme.caption(context: context, fontSize: 12)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickActionChip({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.full),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            border: Border.all(color: primary.withValues(alpha: 0.5)),
+            borderRadius: BorderRadius.circular(AppRadius.full),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: primary),
+              const SizedBox(width: 8),
+              Text(label, style: AppTheme.body(fontSize: 14, fontWeight: FontWeight.w500, color: primary)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _P2pTransferRow extends StatelessWidget {
+  final P2pTransfer transfer;
+
+  const _P2pTransferRow({required this.transfer});
+
+  @override
+  Widget build(BuildContext context) {
+    final isSent = transfer.direction == 'sent';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const P2pHistoryScreen()),
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          child: Row(
+            children: [
+              Icon(
+                isSent ? Icons.arrow_upward : Icons.arrow_downward,
+                size: 18,
+                color: isSent ? AppColors.error : AppColors.success,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  isSent ? 'To ${transfer.otherDisplay}' : 'From ${transfer.otherDisplay}',
+                  style: AppTheme.body(fontSize: 14, fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                '${isSent ? '-' : '+'}\$${transfer.amountUsdc.toStringAsFixed(2)}',
+                style: AppTheme.body(fontSize: 14, fontWeight: FontWeight.w600, color: isSent ? AppColors.error : AppColors.success),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

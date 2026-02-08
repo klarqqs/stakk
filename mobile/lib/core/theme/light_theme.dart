@@ -12,15 +12,15 @@ ThemeData get lightTheme {
       brightness: Brightness.light,
       surface: AppColors.surfaceLight,
     ),
-    scaffoldBackgroundColor: AppColors.surfaceLight,
-    textTheme: GoogleFonts.fustatTextTheme(),
-    fontFamily: GoogleFonts.fustat().fontFamily,
+    scaffoldBackgroundColor: AppColors.backgroundLight,
+    textTheme: GoogleFonts.interTextTheme(),
+    fontFamily: GoogleFonts.inter().fontFamily,
     appBarTheme: AppBarTheme(
       centerTitle: true,
       elevation: 0,
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textPrimaryLight,
-      titleTextStyle: GoogleFonts.unbounded(
+      titleTextStyle: GoogleFonts.inter(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimaryLight,

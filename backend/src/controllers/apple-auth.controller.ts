@@ -28,7 +28,7 @@ function getAppleKey(header: jwt.JwtHeader): Promise<string> {
 export class AppleAuthController {
   async authenticate(req: Request, res: Response) {
     try {
-      const { identityToken, user: appleUser } = req.body;
+      const { identityToken, user: appleUser, referralCode } = req.body;
 
       if (!identityToken) {
         return res.status(400).json({ error: 'Identity token is required' });
@@ -96,7 +96,7 @@ export class AppleAuthController {
           );
         } else {
           const phoneNumber = `apple:${appleId}`;
-          user = await createUserWithStellar(phoneNumber, normalizedEmail, null);
+          user = await createUserWithStellar(phoneNumber, normalizedEmail, null, referralCode);
           isNewUser = true;
 
           await pool.query(

@@ -11,7 +11,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 export class GoogleAuthController {
   async authenticate(req: Request, res: Response) {
     try {
-      const { idToken } = req.body;
+      const { idToken, referralCode } = req.body;
 
       if (!idToken) {
         return res.status(400).json({ error: 'ID token is required' });
@@ -70,7 +70,7 @@ export class GoogleAuthController {
           );
         } else {
           const phoneNumber = `google:${googleId}`;
-          user = await createUserWithStellar(phoneNumber, normalizedEmail, null);
+          user = await createUserWithStellar(phoneNumber, normalizedEmail, null, referralCode);
           isNewUser = true;
 
           await pool.query(

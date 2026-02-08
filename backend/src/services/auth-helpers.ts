@@ -1,5 +1,6 @@
 import pool from '../config/database.ts';
 import stellarService from '../services/stellar.service.ts';
+import { applyReferralCode } from '../services/referral.service.ts';
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -18,7 +19,8 @@ export interface AuthUser {
 export async function createUserWithStellar(
   phoneNumber: string,
   email: string | null,
-  passwordHash: string | null
+  passwordHash: string | null,
+  referralCode?: string | null
 ): Promise<AuthUser> {
   const wallet = stellarService.createWallet();
   await stellarService.fundNewAccount(wallet.publicKey);
@@ -38,6 +40,14 @@ export async function createUserWithStellar(
     user.id,
     0
   ]);
+
+  if (referralCode && referralCode.trim()) {
+    try {
+      await applyReferralCode(user.id, referralCode.trim());
+    } catch {
+      // Ignore referral errors
+    }
+  }
 
   return user;
 }

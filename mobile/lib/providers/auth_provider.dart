@@ -221,4 +221,34 @@ class AuthProvider extends ChangeNotifier {
   Future<BlendEarningsResponse> getBlendEarnings() => _api.getBlendEarnings();
   Future<BlendEnableResult> blendEnable(double amount) => _api.blendEnable(amount);
   Future<BlendDisableResult> blendDisable(double amount) => _api.blendDisable(amount);
+
+  Future<P2pSearchResult> p2pSearch(String query) => _api.p2pSearch(query);
+  Future<P2pSendResult> p2pSend({required String receiver, required double amount, String? note}) =>
+      _api.p2pSend(receiver: receiver, amount: amount, note: note);
+  Future<List<P2pTransfer>> p2pGetHistory() => _api.p2pGetHistory();
+
+  Future<List<SavingsGoal>> goalsGetAll() => _api.goalsGetAll();
+  Future<GoalDetail> goalsGetOne(int id) => _api.goalsGetOne(id);
+  Future<SavingsGoal> goalsCreate(Map<String, dynamic> data) => _api.goalsCreate(data);
+  Future<SavingsGoal> goalsContribute(int id, double amount) => _api.goalsContribute(id, amount);
+  Future<SavingsGoal> goalsWithdraw(int id, double amount) => _api.goalsWithdraw(id, amount);
+  Future<void> goalsDelete(int id) => _api.goalsDelete(id);
+
+  Future<List<LockedSaving>> lockedGetAll() => _api.lockedGetAll();
+  Future<List<Map<String, dynamic>>> lockedGetRates() => _api.lockedGetRates();
+  Future<LockedSaving> lockedCreate(double amount, int duration, {bool autoRenew = false}) =>
+      _api.lockedCreate(amount, duration, autoRenew: autoRenew);
+  Future<LockedSaving> lockedWithdraw(int id) => _api.lockedWithdraw(id);
+
+  Future<String> referralsGetCode() => _api.referralsGetCode();
+  Future<ReferralStats> referralsGetMine() => _api.referralsGetMine();
+  Future<List<Map<String, dynamic>>> referralsGetLeaderboard() => _api.referralsGetLeaderboard();
+
+  Future<NotificationsResponse> notificationsGet({bool unreadOnly = false}) =>
+      _api.notificationsGet(unreadOnly: unreadOnly);
+  Future<int> notificationsGetUnreadCount() => _api.notificationsGetUnreadCount();
+  Future<void> notificationsMarkRead(int id) => _api.notificationsMarkRead(id);
+  Future<void> notificationsMarkAllRead() => _api.notificationsMarkAllRead();
+
+  Future<TransparencyStats> transparencyGetStats() => _api.transparencyGetStats();
 }

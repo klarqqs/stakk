@@ -2,6 +2,7 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import pool from '../config/database.ts';
 import stellarService from '../services/stellar.service.ts';
+import { checkAndPayReferralOnDeposit } from '../services/referral.service.ts';
 import { DEPOSIT_LIMITS, NGN_USD_RATE, DEPOSIT_FEE_RATE } from '../config/limits.ts';
 
 const router = Router();
@@ -186,6 +187,8 @@ router.post('/flutterwave', async (req: Request, res: Response) => {
         `UPDATE wallets SET usdc_balance = usdc_balance + $1, last_synced_at = NOW() WHERE user_id = $2`,
         [amountUsdc, userId]
       );
+
+      await checkAndPayReferralOnDeposit(userId, amountNaira);
 
       if (!isProd) {
         console.log(`✅ Deposit completed: ${amountUsdc} USDC to user ${userId}`);

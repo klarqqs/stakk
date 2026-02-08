@@ -1,9 +1,8 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/tokens/app_colors.dart';
 import '../theme/tokens/app_radius.dart';
 
-enum AppTab { home, bills, invest, card, more }
+enum AppTab { home, bills, send, save, more }
 
 class AppBottomNavBar extends StatelessWidget {
   final AppTab currentTab;
@@ -18,71 +17,60 @@ class AppBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          decoration: BoxDecoration(
-            color: (isDark ? AppColors.surfaceDark : Colors.white).withOpacity(0.82),
-            border: Border(
-              top: BorderSide(
-                color: (isDark ? AppColors.borderDark : AppColors.borderLight).withOpacity(0.4),
-                width: 0.5,
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: (isDark ? Colors.black : AppColors.borderLight).withValues(alpha: isDark ? 0.3 : 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 68,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _NavItem(
+                icon: Icons.home_outlined,
+                activeIcon: Icons.home_rounded,
+                label: 'Home',
+                isActive: currentTab == AppTab.home,
+                onTap: () => onTabSelected(AppTab.home),
               ),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(isDark ? 0.2 : 0.04),
-                blurRadius: 12,
-                offset: const Offset(0, -4),
+              _NavItem(
+                icon: Icons.receipt_long_outlined,
+                activeIcon: Icons.receipt_long_rounded,
+                label: 'Bills',
+                isActive: currentTab == AppTab.bills,
+                onTap: () => onTabSelected(AppTab.bills),
+              ),
+              _NavItem(
+                icon: Icons.send_outlined,
+                activeIcon: Icons.send_rounded,
+                label: 'Send',
+                isActive: currentTab == AppTab.send,
+                onTap: () => onTabSelected(AppTab.send),
+              ),
+              _NavItem(
+                icon: Icons.savings_outlined,
+                activeIcon: Icons.savings_rounded,
+                label: 'Save',
+                isActive: currentTab == AppTab.save,
+                onTap: () => onTabSelected(AppTab.save),
+              ),
+              _NavItem(
+                icon: Icons.grid_view_outlined,
+                activeIcon: Icons.grid_view_rounded,
+                label: 'More',
+                isActive: currentTab == AppTab.more,
+                onTap: () => onTabSelected(AppTab.more),
               ),
             ],
-          ),
-          child: SafeArea(
-            top: false,
-            child: SizedBox(
-              height: 68,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _NavItem(
-                    icon: Icons.home_outlined,
-                    activeIcon: Icons.home,
-                    label: 'Home',
-                    isActive: currentTab == AppTab.home,
-                    onTap: () => onTabSelected(AppTab.home),
-                  ),
-                  _NavItem(
-                    icon: Icons.receipt_long_outlined,
-                    activeIcon: Icons.receipt_long,
-                    label: 'Bills',
-                    isActive: currentTab == AppTab.bills,
-                    onTap: () => onTabSelected(AppTab.bills),
-                  ),
-                  _NavItem(
-                    icon: Icons.trending_up_outlined,
-                    activeIcon: Icons.trending_up,
-                    label: 'Invest',
-                    isActive: currentTab == AppTab.invest,
-                    onTap: () => onTabSelected(AppTab.invest),
-                  ),
-                  _NavItem(
-                    icon: Icons.credit_card_outlined,
-                    activeIcon: Icons.credit_card,
-                    label: 'Card',
-                    isActive: currentTab == AppTab.card,
-                    onTap: () => onTabSelected(AppTab.card),
-                  ),
-                  _NavItem(
-                    icon: Icons.more_horiz,
-                    activeIcon: Icons.more_horiz,
-                    label: 'More',
-                    isActive: currentTab == AppTab.more,
-                    onTap: () => onTabSelected(AppTab.more),
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
       ),
@@ -127,7 +115,11 @@ class _NavItem extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(fontSize: 11, fontWeight: isActive ? FontWeight.w600 : FontWeight.w400, color: color),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                color: color,
+              ),
             ),
           ],
         ),

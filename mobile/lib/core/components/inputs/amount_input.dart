@@ -27,7 +27,8 @@ class AmountInput extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
       textBaseline: TextBaseline.alphabetic,
       children: [
         if (currencyPrefix != null && currencyPrefix!.isNotEmpty) ...[

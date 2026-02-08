@@ -68,7 +68,7 @@ export class EmailOtpController {
 
   async verifyOtp(req: Request, res: Response) {
     try {
-      const { email, code } = req.body;
+      const { email, code, referralCode } = req.body;
 
       if (!email || !code) {
         return res.status(400).json({ error: 'Email and code are required' });
@@ -119,7 +119,7 @@ export class EmailOtpController {
 
       if (!user) {
         const phoneNumber = `email:${normalizedEmail}`;
-        user = await createUserWithStellar(phoneNumber, normalizedEmail, null);
+        user = await createUserWithStellar(phoneNumber, normalizedEmail, null, referralCode);
         isNewUser = true;
 
         await pool.query(

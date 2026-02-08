@@ -13,14 +13,14 @@ ThemeData get darkTheme {
       surface: AppColors.surfaceDark,
     ),
     scaffoldBackgroundColor: AppColors.surfaceDark,
-    textTheme: GoogleFonts.fustatTextTheme(ThemeData.dark().textTheme),
-    fontFamily: GoogleFonts.fustat().fontFamily,
+    textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme),
+    fontFamily: GoogleFonts.inter().fontFamily,
     appBarTheme: AppBarTheme(
       centerTitle: true,
       elevation: 0,
       backgroundColor: Colors.transparent,
       foregroundColor: AppColors.textPrimaryDark,
-      titleTextStyle: GoogleFonts.unbounded(
+      titleTextStyle: GoogleFonts.inter(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimaryDark,

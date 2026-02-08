@@ -42,7 +42,7 @@ export class EmailAuthController {
     let userId: number | null = null;
     let normalizedEmail: string | null = null;
     try {
-      const { email, password, firstName, lastName } = req.body;
+      const { email, password, firstName, lastName, referralCode } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({ error: 'Email and password are required' });
@@ -71,7 +71,8 @@ export class EmailAuthController {
       const user = await createUserWithStellar(
         phoneNumber,
         normalizedEmail,
-        passwordHash
+        passwordHash,
+        referralCode
       );
       userId = user.id;
 

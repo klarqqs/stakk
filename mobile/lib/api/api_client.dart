@@ -451,6 +451,63 @@ class ApiClient {
   }
 
   /// Blend - disable earning (withdraw USDC from Blend)
+  /// P2P - search user by phone or email
+  Future<P2pSearchResult> p2pSearch(String query) async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/p2p/search?query=${Uri.encodeComponent(query)}'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode == 404) {
+      throw ApiException('User not found');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Search failed');
+    }
+    return P2pSearchResult.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  /// P2P - send money to user
+  Future<P2pSendResult> p2pSend({required String receiver, required double amount, String? note}) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/p2p/send'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({'receiver': receiver, 'amount': amount, if (note != null) 'note': note}),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Transfer failed');
+    }
+    return P2pSendResult.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  /// P2P - get transfer history
+  Future<List<P2pTransfer>> p2pGetHistory() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/p2p/history'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch history');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['transfers'] as List<dynamic>? ?? [];
+    return list.map((e) => P2pTransfer.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
   Future<BlendDisableResult> blendDisable(double amount) async {
     final res = await _requestWithRefresh(() async => http.post(
           Uri.parse('${Env.apiBaseUrl}/blend/disable'),
@@ -472,6 +529,270 @@ class ApiClient {
   Future<void> saveToken(String token) => _setToken(token);
 
   Future<void> logout() => _clearTokens();
+
+  // Goals
+  Future<List<SavingsGoal>> goalsGetAll() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/goals'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) throw ApiException('Failed to fetch goals');
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['goals'] as List<dynamic>? ?? [];
+    return list.map((e) => SavingsGoal.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<GoalDetail> goalsGetOne(int id) async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/goals/$id'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) throw ApiException('Failed to fetch goal');
+    return GoalDetail.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<SavingsGoal> goalsCreate(Map<String, dynamic> data) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/goals'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode(data),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 201) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to create goal');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return SavingsGoal.fromJson(body['goal'] as Map<String, dynamic>);
+  }
+
+  Future<SavingsGoal> goalsContribute(int id, double amount) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/goals/$id/contribute'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({'amount': amount}),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to contribute');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return SavingsGoal.fromJson(body['goal'] as Map<String, dynamic>);
+  }
+
+  Future<SavingsGoal> goalsWithdraw(int id, double amount) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/goals/$id/withdraw'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({'amount': amount}),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to withdraw');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return SavingsGoal.fromJson(body['goal'] as Map<String, dynamic>);
+  }
+
+  Future<void> goalsDelete(int id) async {
+    final res = await _requestWithRefresh(() async => http.delete(
+          Uri.parse('${Env.apiBaseUrl}/goals/$id'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to delete');
+    }
+  }
+
+  // Locked savings
+  Future<List<LockedSaving>> lockedGetAll() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/locked'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) throw ApiException('Failed to fetch locked savings');
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['locks'] as List<dynamic>? ?? [];
+    return list.map((e) => LockedSaving.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> lockedGetRates() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/locked/rates'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) throw ApiException('Failed to fetch rates');
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['rates'] as List<dynamic>? ?? [];
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  Future<LockedSaving> lockedCreate(double amount, int duration, {bool autoRenew = false}) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/locked'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({'amount': amount, 'duration': duration, 'autoRenew': autoRenew}),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 201) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to lock funds');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return LockedSaving.fromJson(body['lock'] as Map<String, dynamic>);
+  }
+
+  Future<LockedSaving> lockedWithdraw(int id) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/locked/$id/withdraw'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to withdraw');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return LockedSaving.fromJson(body['lock'] as Map<String, dynamic>);
+  }
+
+  // Referrals
+  Future<String> referralsGetCode() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/referrals/code'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) throw ApiException('Failed to get code');
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return body['code'] as String? ?? '';
+  }
+
+  Future<ReferralStats> referralsGetMine() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/referrals/mine'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) throw ApiException('Failed to fetch referrals');
+    return ReferralStats.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<List<Map<String, dynamic>>> referralsGetLeaderboard() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/referrals/leaderboard'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) throw ApiException('Failed to fetch leaderboard');
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['leaderboard'] as List<dynamic>? ?? [];
+    return list.map((e) => e as Map<String, dynamic>).toList();
+  }
+
+  // Notifications (no auth for public transparency)
+  Future<NotificationsResponse> notificationsGet({bool unreadOnly = false}) async {
+    final uri = Uri.parse('${Env.apiBaseUrl}/notifications').replace(
+      queryParameters: unreadOnly ? {'unreadOnly': 'true'} : null,
+    );
+    final res = await _requestWithRefresh(() async => http.get(uri, headers: await _headers(withAuth: true)));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) throw ApiException('Failed to fetch notifications');
+    return NotificationsResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<int> notificationsGetUnreadCount() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/notifications/unread-count'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) return 0;
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return body['count'] as int? ?? 0;
+  }
+
+  Future<void> notificationsMarkRead(int id) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/notifications/$id/read'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+  }
+
+  Future<void> notificationsMarkAllRead() async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/notifications/read-all'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+  }
+
+  // Transparency (public)
+  Future<TransparencyStats> transparencyGetStats() async {
+    final res = await http.get(Uri.parse('${Env.apiBaseUrl}/transparency/stats'));
+    if (res.statusCode != 200) throw ApiException('Failed to fetch stats');
+    return TransparencyStats.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
 
   Future<bool> hasToken() async => (await _getAccessToken()) != null;
 
@@ -774,4 +1095,274 @@ class BlendDisableResult {
         success: json['success'] as bool? ?? true,
         withdrawn: (json['withdrawn'] as num?)?.toDouble() ?? 0,
       );
+}
+
+class P2pSearchResult {
+  final P2pUser user;
+
+  P2pSearchResult({required this.user});
+
+  factory P2pSearchResult.fromJson(Map<String, dynamic> json) =>
+      P2pSearchResult(user: P2pUser.fromJson(json['user'] as Map<String, dynamic>));
+}
+
+class P2pUser {
+  final int id;
+  final String phoneNumber;
+  final String? email;
+  final String displayName;
+
+  P2pUser({required this.id, required this.phoneNumber, this.email, required this.displayName});
+
+  factory P2pUser.fromJson(Map<String, dynamic> json) => P2pUser(
+        id: json['id'] as int,
+        phoneNumber: json['phone_number'] as String? ?? '',
+        email: json['email'] as String?,
+        displayName: json['displayName'] as String? ?? json['email'] ?? json['phone_number'] ?? '',
+      );
+}
+
+class P2pSendResult {
+  final bool success;
+  final String message;
+  final int transferId;
+
+  P2pSendResult({required this.success, required this.message, required this.transferId});
+
+  factory P2pSendResult.fromJson(Map<String, dynamic> json) => P2pSendResult(
+        success: json['success'] as bool? ?? true,
+        message: json['message'] as String? ?? '',
+        transferId: json['transferId'] as int? ?? 0,
+      );
+}
+
+class SavingsGoal {
+  final int id;
+  final String name;
+  final double targetAmount;
+  final double currentAmount;
+  final String? deadline;
+  final String status;
+
+  SavingsGoal({
+    required this.id,
+    required this.name,
+    required this.targetAmount,
+    required this.currentAmount,
+    this.deadline,
+    required this.status,
+  });
+
+  double get progress => targetAmount > 0 ? (currentAmount / targetAmount).clamp(0.0, 1.0) : 0;
+
+  factory SavingsGoal.fromJson(Map<String, dynamic> json) => SavingsGoal(
+        id: json['id'] as int,
+        name: json['name'] as String? ?? '',
+        targetAmount: (json['target_amount'] as num?)?.toDouble() ?? 0,
+        currentAmount: (json['current_amount'] as num?)?.toDouble() ?? 0,
+        deadline: json['deadline']?.toString(),
+        status: json['status'] as String? ?? 'active',
+      );
+}
+
+class GoalDetail {
+  final SavingsGoal goal;
+  final List<GoalContribution> contributions;
+
+  GoalDetail({required this.goal, required this.contributions});
+
+  factory GoalDetail.fromJson(Map<String, dynamic> json) {
+    final goal = SavingsGoal.fromJson(json['goal'] as Map<String, dynamic>);
+    final list = json['contributions'] as List<dynamic>? ?? [];
+    final contributions = list.map((e) => GoalContribution.fromJson(e as Map<String, dynamic>)).toList();
+    return GoalDetail(goal: goal, contributions: contributions);
+  }
+}
+
+class GoalContribution {
+  final int id;
+  final double amountUsdc;
+  final String source;
+  final String createdAt;
+
+  GoalContribution({required this.id, required this.amountUsdc, required this.source, required this.createdAt});
+
+  factory GoalContribution.fromJson(Map<String, dynamic> json) => GoalContribution(
+        id: json['id'] as int,
+        amountUsdc: (json['amount_usdc'] as num?)?.toDouble() ?? 0,
+        source: json['source'] as String? ?? 'manual',
+        createdAt: json['created_at']?.toString() ?? '',
+      );
+}
+
+class LockedSaving {
+  final int id;
+  final double amountUsdc;
+  final int lockDuration;
+  final double apyRate;
+  final String startDate;
+  final String maturityDate;
+  final String status;
+  final double interestEarned;
+
+  LockedSaving({
+    required this.id,
+    required this.amountUsdc,
+    required this.lockDuration,
+    required this.apyRate,
+    required this.startDate,
+    required this.maturityDate,
+    required this.status,
+    required this.interestEarned,
+  });
+
+  bool get isMatured {
+    try {
+      return DateTime.parse(maturityDate).isBefore(DateTime.now());
+    } catch (_) {
+      return false;
+    }
+  }
+
+  factory LockedSaving.fromJson(Map<String, dynamic> json) => LockedSaving(
+        id: json['id'] as int,
+        amountUsdc: (json['amount_usdc'] as num?)?.toDouble() ?? 0,
+        lockDuration: json['lock_duration'] as int? ?? 0,
+        apyRate: (json['apy_rate'] as num?)?.toDouble() ?? 0,
+        startDate: json['start_date']?.toString() ?? '',
+        maturityDate: json['maturity_date']?.toString() ?? '',
+        status: json['status'] as String? ?? 'active',
+        interestEarned: (json['interest_earned'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class ReferralStats {
+  final String code;
+  final int totalReferred;
+  final int pendingRewards;
+  final double paidRewards;
+
+  ReferralStats({
+    required this.code,
+    required this.totalReferred,
+    required this.pendingRewards,
+    required this.paidRewards,
+  });
+
+  factory ReferralStats.fromJson(Map<String, dynamic> json) => ReferralStats(
+        code: json['code'] as String? ?? '',
+        totalReferred: json['totalReferred'] as int? ?? 0,
+        pendingRewards: json['pendingRewards'] as int? ?? 0,
+        paidRewards: (json['paidRewards'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class NotificationsResponse {
+  final List<AppNotification> notifications;
+  final int unreadCount;
+
+  NotificationsResponse({required this.notifications, required this.unreadCount});
+
+  factory NotificationsResponse.fromJson(Map<String, dynamic> json) {
+    final list = json['notifications'] as List<dynamic>? ?? [];
+    return NotificationsResponse(
+      notifications: list.map((e) => AppNotification.fromJson(e as Map<String, dynamic>)).toList(),
+      unreadCount: json['unreadCount'] as int? ?? 0,
+    );
+  }
+}
+
+class AppNotification {
+  final int id;
+  final String type;
+  final String? title;
+  final String? message;
+  final bool read;
+  final String createdAt;
+
+  AppNotification({
+    required this.id,
+    required this.type,
+    this.title,
+    this.message,
+    required this.read,
+    required this.createdAt,
+  });
+
+  factory AppNotification.fromJson(Map<String, dynamic> json) => AppNotification(
+        id: json['id'] as int,
+        type: json['type'] as String? ?? '',
+        title: json['title'] as String?,
+        message: json['message'] as String?,
+        read: json['read'] as bool? ?? false,
+        createdAt: json['created_at']?.toString() ?? '',
+      );
+}
+
+class TransparencyStats {
+  final double treasuryUsdc;
+  final double totalUserBalances;
+  final int reservesRatio;
+  final int totalTransactions;
+  final double totalSavedNaira;
+  final String treasuryAddress;
+
+  TransparencyStats({
+    required this.treasuryUsdc,
+    required this.totalUserBalances,
+    required this.reservesRatio,
+    required this.totalTransactions,
+    required this.totalSavedNaira,
+    required this.treasuryAddress,
+  });
+
+  factory TransparencyStats.fromJson(Map<String, dynamic> json) => TransparencyStats(
+        treasuryUsdc: (json['treasuryUsdc'] as num?)?.toDouble() ?? 0,
+        totalUserBalances: (json['totalUserBalances'] as num?)?.toDouble() ?? 0,
+        reservesRatio: json['reservesRatio'] as int? ?? 100,
+        totalTransactions: json['totalTransactions'] as int? ?? 0,
+        totalSavedNaira: (json['totalSavedNaira'] as num?)?.toDouble() ?? 0,
+        treasuryAddress: json['treasuryAddress'] as String? ?? '',
+      );
+}
+
+class P2pTransfer {
+  final int id;
+  final double amountUsdc;
+  final double feeUsdc;
+  final String status;
+  final String? note;
+  final String createdAt;
+  final String direction;
+  final String? otherPhone;
+  final String? otherEmail;
+
+  P2pTransfer({
+    required this.id,
+    required this.amountUsdc,
+    required this.feeUsdc,
+    required this.status,
+    this.note,
+    required this.createdAt,
+    required this.direction,
+    this.otherPhone,
+    this.otherEmail,
+  });
+
+  String get otherDisplay => otherEmail ?? otherPhone ?? 'Unknown';
+
+  factory P2pTransfer.fromJson(Map<String, dynamic> json) {
+    final other = json['other_user'] as Map<String, dynamic>?;
+    return P2pTransfer(
+      id: json['id'] as int,
+      amountUsdc: (json['amount_usdc'] as num?)?.toDouble() ?? 0,
+      feeUsdc: (json['fee_usdc'] as num?)?.toDouble() ?? 0,
+      status: json['status'] as String? ?? '',
+      note: json['note'] as String?,
+      createdAt: json['created_at'] as String? ?? '',
+      direction: json['direction'] as String? ?? 'sent',
+      otherPhone: other?['phone_number'] as String?,
+      otherEmail: other?['email'] as String?,
+    );
+  }
 }

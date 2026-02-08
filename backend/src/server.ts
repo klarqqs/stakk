@@ -8,6 +8,12 @@ import adminRoutes from './routes/admin.routes.ts';
 import withdrawalRoutes from './routes/withdrawal.routes.ts';
 import billsRoutes from './routes/bills.routes.ts';
 import blendRoutes from './routes/blend.routes.ts';
+import p2pRoutes from './routes/p2p.routes.ts';
+import goalsRoutes from './routes/goals.routes.ts';
+import lockedRoutes from './routes/locked.routes.ts';
+import referralRoutes from './routes/referral.routes.ts';
+import transparencyRoutes from './routes/transparency.routes.ts';
+import notificationRoutes from './routes/notification.routes.ts';
 
 dotenv.config();
 
@@ -26,6 +32,12 @@ app.use('/api/wallet', walletRoutes);
 app.use('/api/withdrawal', withdrawalRoutes);
 app.use('/api/bills', billsRoutes);
 app.use('/api/blend', blendRoutes);
+app.use('/api/p2p', p2pRoutes);
+app.use('/api/goals', goalsRoutes);
+app.use('/api/locked', lockedRoutes);
+app.use('/api/referrals', referralRoutes);
+app.use('/api/transparency', transparencyRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Health check (Railway and other platforms)
 app.get('/health', (req, res) => {
