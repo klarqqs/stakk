@@ -51,7 +51,11 @@ async function flwFetch<T>(path: string): Promise<T> {
   const res = await fetch(`${FLW_BASE}${path}`, {
     headers: { Authorization: `Bearer ${SECRET_KEY}` },
   });
-  return (await res.json()) as T;
+  const json = (await res.json()) as T & { status?: string; message?: string };
+  if (res.status !== 200 || json?.status === 'error') {
+    console.warn(`Flutterwave ${path}: HTTP ${res.status}`, JSON.stringify({ status: json?.status, message: json?.message }));
+  }
+  return json as T;
 }
 
 /** Bill payments via Flutterwave: Airtime, Data, Cable TV, Electricity */
@@ -85,8 +89,12 @@ class BillsService {
 
     // 3. Try v3/top-bill-categories, then fetch billers per category
     try {
-      const topRes = await flwFetch<{ status?: string; data?: Array<{ code?: string; name?: string }> }>('/top-bill-categories?country=NG');
-      if (topRes?.status !== 'success' || !Array.isArray(topRes.data)) throw new Error('No top categories');
+      const topRes = await flwFetch<{ status?: string; message?: string; data?: Array<{ code?: string; name?: string }> }>('/top-bill-categories?country=NG');
+      if (topRes?.status !== 'success' || !Array.isArray(topRes.data)) {
+        const msg = (topRes as { message?: string })?.message || 'No top categories';
+        console.warn('Flutterwave top-bill-categories response:', JSON.stringify(topRes));
+        throw new Error(msg);
+      }
 
       const allBillers: BillerItem[] = [];
       for (const cat of topRes.data) {
