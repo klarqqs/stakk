@@ -166,7 +166,8 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
       await context.read<AuthProvider>().payBill(
             customer: customer,
             amount: amount,
-            type: widget.provider.shortName.isNotEmpty ? widget.provider.shortName : widget.provider.name,
+            billerCode: widget.provider.billerCode,
+            itemCode: _itemCode,
           );
       if (mounted) {
         widget.onSuccess();

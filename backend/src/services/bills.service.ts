@@ -47,10 +47,16 @@ function toBillCategory(item: BillerItem, index: number): Record<string, unknown
 }
 
 /** Direct HTTP fetch to Flutterwave (bypass SDK for resilience) */
-async function flwFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${FLW_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${SECRET_KEY}` },
-  });
+async function flwFetch<T>(path: string, method: 'GET' | 'POST' = 'GET', body?: Record<string, unknown>): Promise<T> {
+  const opts: RequestInit = {
+    method,
+    headers: {
+      Authorization: `Bearer ${SECRET_KEY}`,
+      'Content-Type': 'application/json',
+    },
+  };
+  if (method === 'POST' && body != null) opts.body = JSON.stringify(body);
+  const res = await fetch(`${FLW_BASE}${path}`, opts);
   const json = (await res.json()) as T & { status?: string; message?: string };
   if (res.status !== 200 || json?.status === 'error') {
     console.warn(`Flutterwave ${path}: HTTP ${res.status}`, JSON.stringify({ status: json?.status, message: json?.message }));
@@ -101,7 +107,7 @@ class BillsService {
         const code = cat.code;
         if (!code) continue;
         try {
-          const billersRes = await flwFetch<{ status?: string; data?: BillerItem[] }>(`/billers?category=${encodeURIComponent(code)}&country=NG`);
+          const billersRes = await flwFetch<{ status?: string; data?: BillerItem[] }>(`/bills/${encodeURIComponent(code)}/billers?country=NG`);
           if (billersRes?.status === 'success' && Array.isArray(billersRes.data)) {
             for (const b of billersRes.data) {
               allBillers.push({ ...b, biller_name: cat.name ?? b.biller_name ?? b.name } as BillerItem);
@@ -137,51 +143,12 @@ class BillsService {
       }));
   }
 
-  /** Map top-bill-category code to biller_name in bill-categories */
-  private static readonly CATEGORY_TO_BILLER_NAME: Record<string, string[]> = {
-    AIRTIME: ['AIRTIME'],
-    MOBILEDATA: ['MOBILEDATA', 'DATA', 'MOBILE DATA'],
-    CABLEBILLS: ['CABLEBILLS', 'CABLE', 'CABLE TV'],
-    INTSERVICE: ['INTSERVICE', 'INTERNET'],
-    UTILITYBILLS: ['UTILITYBILLS', 'UTILITY', 'PREPAID', 'POSTPAID', 'ELECTRICITY'],
-    TAX: ['TAX'],
-    DONATIONS: ['DONATIONS'],
-    TRANSLOG: ['TRANSLOG', 'TRANSPORT'],
-    DEALPAY: ['DEALPAY'],
-    RELINST: ['RELINST'],
-    SCHPB: ['SCHPB'],
-  };
-
-  /** Get providers (billers) for a category. Uses bill-categories for accurate MTN/GLO/Airtel for airtime. */
+  /** Get providers (billers) for a category. Uses correct Flutterwave endpoint: /bills/{category}/billers */
   async getProviders(categoryCode: string) {
     const codeUpper = categoryCode.toUpperCase().trim();
-    const billerNames = BillsService.CATEGORY_TO_BILLER_NAME[codeUpper] ?? [codeUpper];
 
-    // 1. Try bill-categories – returns MTN, GLO, Airtel etc. for AIRTIME (billers API can return wrong billers)
-    try {
-      const catRes = await flwFetch<{ status?: string; data?: BillerItem[] }>('/bill-categories?country=NG');
-      if (catRes?.status === 'success' && Array.isArray(catRes.data)) {
-        const filtered = catRes.data.filter((b) => {
-          const country = b.country ?? b.country_code ?? 'NG';
-          if (country !== 'NG') return false;
-          const bn = (b.biller_name ?? b.name ?? '').toUpperCase();
-          return billerNames.some((expected) => bn === expected || bn.includes(expected));
-        });
-        if (filtered.length > 0) {
-          return filtered.map((b, i) => ({
-            id: b.id ?? i + 1,
-            billerCode: b.biller_code ?? b.code ?? '',
-            name: b.name ?? b.short_name ?? '',
-            shortName: b.short_name ?? b.name ?? '',
-          }));
-        }
-      }
-    } catch (e) {
-      console.warn('bill-categories for providers failed, trying billers:', (e as Error).message);
-    }
-
-    // 2. Fallback to billers API
-    const res = await flwFetch<{ status?: string; data?: Array<{ id?: number; name?: string; biller_code?: string; short_name?: string; country_code?: string }> }>(`/billers?category=${encodeURIComponent(categoryCode)}&country=NG`);
+    // 1. Use correct Flutterwave endpoint: /bills/{category}/billers (e.g. /bills/CABLEBILLS/billers, /bills/AIRTIME/billers)
+    const res = await flwFetch<{ status?: string; data?: Array<{ id?: number; name?: string; biller_code?: string; short_name?: string; country_code?: string }> }>(`/bills/${encodeURIComponent(categoryCode)}/billers?country=NG`);
     if (res?.status !== 'success' || !Array.isArray(res.data)) {
       throw new Error((res as { message?: string })?.message || 'Failed to fetch providers');
     }
@@ -199,42 +166,53 @@ class BillsService {
     }));
   }
 
-  /** Get products for a provider (biller) */
+  /** Get bill items/products for a provider (biller). Uses /billers/{biller_code}/items */
   async getProducts(billerCode: string) {
     try {
-      const res = await flwFetch<{ status?: string; data?: { products?: Array<{ code?: string; name?: string; amount?: string }> } }>(`/billers/${encodeURIComponent(billerCode)}/products`);
-      if (res?.status !== 'success') return [];
-      const products = res.data?.products ?? [];
-      return products.map((p) => ({
-        id: p.code ?? '',
-        productCode: p.code ?? '',
-        name: p.name ?? '',
-        amount: parseFloat(String(p.amount ?? '0')) || 0,
-      }));
+      const res = await flwFetch<{
+        status?: string;
+        data?: Array<{ id?: number; item_code?: string; name?: string; short_name?: string; amount?: number }>;
+      }>(`/billers/${encodeURIComponent(billerCode)}/items`);
+      if (res?.status !== 'success' || !Array.isArray(res.data)) return [];
+      const seen = new Set<string>();
+      return res.data
+        .filter((p) => {
+          const code = p.item_code ?? '';
+          if (!code || seen.has(code)) return false;
+          seen.add(code);
+          return true;
+        })
+        .map((p) => ({
+          id: p.item_code ?? String(p.id ?? ''),
+          productCode: p.item_code ?? '',
+          name: p.short_name ?? p.name ?? '',
+          amount: Number(p.amount ?? 0) || 0,
+        }));
     } catch {
       return [];
     }
   }
 
-  /** Validate customer (meter number, smartcard, phone) before payment */
-  async validate(itemCode: string, billerCode: string, customer: string) {
-    const response = await flw.Bills.validate({
-      item_code: itemCode,
-      code: billerCode,
-      customer,
-    });
-    if (response.status !== 'success') {
-      throw new Error(response.message || 'Validation failed');
+  /** Validate customer (meter number, smartcard, phone) before payment. Uses GET /bill-items/{item_code}/validate */
+  async validate(itemCode: string, _billerCode: string, customer: string) {
+    const res = await flwFetch<{
+      status?: string;
+      message?: string;
+      data?: { name?: string; customer?: string; product_code?: string };
+    }>(`/bill-items/${encodeURIComponent(itemCode)}/validate?customer=${encodeURIComponent(customer)}`);
+    if (res?.status !== 'success') {
+      throw new Error((res as { message?: string })?.message || 'Validation failed');
     }
-    return response.data;
+    return res.data ?? {};
   }
 
-  /** Pay bill: deduct USDC, call Flutterwave, record transaction */
+  /** Pay bill: deduct USDC, call Flutterwave POST /billers/{biller_code}/items/{item_code}/payment */
   async payBill(
     userId: number,
+    billerCode: string,
+    itemCode: string,
     customer: string,
     amount: number,
-    type: string,
     reference: string
   ) {
     const balanceResult = await pool.query(
@@ -252,19 +230,24 @@ class BillsService {
       throw new Error('Insufficient USDC balance');
     }
 
+    // Format Nigerian phone as +234... for airtime/data; pass as-is for smartcard/meter
+    const custId = /^0\d{10}$/.test(customer) ? `+234${customer.slice(1)}` : customer;
+
     const payload = {
       country: 'NG',
-      customer,
+      customer_id: custId,
       amount,
-      recurrence: 'ONCE',
-      type: type.toUpperCase(),
       reference,
     };
 
-    const response = await flw.Bills.create_bill(payload);
+    const res = await flwFetch<{ status?: string; message?: string; data?: { tx_ref?: string; reference?: string } }>(
+      `/billers/${encodeURIComponent(billerCode)}/items/${encodeURIComponent(itemCode)}/payment`,
+      'POST',
+      payload
+    );
 
-    if (response.status !== 'success') {
-      throw new Error(response.message || 'Bill payment failed');
+    if (res?.status !== 'success') {
+      throw new Error((res as { message?: string })?.message || 'Bill payment failed');
     }
 
     await pool.query(
@@ -283,8 +266,8 @@ class BillsService {
       reference,
       amount,
       usdc_spent: usdcRequired,
-      flw_ref: (response.data as { flw_ref?: string })?.flw_ref,
-      tx_ref: (response.data as { tx_ref?: string })?.tx_ref,
+      tx_ref: res.data?.tx_ref,
+      flw_ref: res.data?.reference,
     };
   }
 

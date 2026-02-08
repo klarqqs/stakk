@@ -69,11 +69,11 @@ export class BillsController {
   async pay(req: AuthRequest, res: Response) {
     try {
       const userId = req.userId!;
-      const { customer, amount, type } = req.body;
+      const { customer, amount, biller_code, item_code } = req.body;
 
-      if (!customer || !amount || !type) {
+      if (!customer || !amount || !biller_code || !item_code) {
         return res.status(400).json({
-          error: 'customer, amount, and type are required',
+          error: 'customer, amount, biller_code, and item_code are required',
         });
       }
 
@@ -86,9 +86,10 @@ export class BillsController {
 
       const result = await billsService.payBill(
         userId,
+        String(biller_code).trim(),
+        String(item_code).trim(),
         String(customer).trim(),
         amt,
-        String(type).trim(),
         reference
       );
 

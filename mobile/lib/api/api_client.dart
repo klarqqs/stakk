@@ -310,7 +310,8 @@ class ApiClient {
   Future<BillPaymentResult> payBill({
     required String customer,
     required double amount,
-    required String type,
+    required String billerCode,
+    required String itemCode,
   }) async {
     final res = await _requestWithRefresh(() async => http.post(
           Uri.parse('${Env.apiBaseUrl}/bills/pay'),
@@ -318,7 +319,8 @@ class ApiClient {
           body: jsonEncode({
             'customer': customer,
             'amount': amount,
-            'type': type,
+            'biller_code': billerCode,
+            'item_code': itemCode,
           }),
         ));
     if (_isAuthError(res.statusCode)) {
