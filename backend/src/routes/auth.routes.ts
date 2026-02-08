@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller.ts';
 import { EmailOtpController } from '../controllers/email-otp.controller.ts';
+import { EmailAuthController } from '../controllers/email-auth.controller.ts';
 import { GoogleAuthController } from '../controllers/google-auth.controller.ts';
 import { AppleAuthController } from '../controllers/apple-auth.controller.ts';
 import { authenticateToken } from '../middleware/auth.middleware.ts';
@@ -22,6 +23,7 @@ import pool from '../config/database.ts';
 const router = Router();
 const authController = new AuthController();
 const emailOtpController = new EmailOtpController();
+const emailAuthController = new EmailAuthController();
 const googleAuthController = new GoogleAuthController();
 const appleAuthController = new AppleAuthController();
 
@@ -29,7 +31,17 @@ const appleAuthController = new AppleAuthController();
 router.post('/register', (req, res) => authController.register(req, res));
 router.post('/login', (req, res) => authController.login(req, res));
 
-// Email OTP
+// Email-first flow (Dayfi-style)
+router.post('/check-email', (req, res) => emailAuthController.checkEmail(req, res));
+router.post('/register-email', otpRequestLimiter, (req, res) => emailAuthController.registerEmail(req, res));
+router.post('/verify-email', otpVerifyLimiter, (req, res) => emailAuthController.verifyEmailSignup(req, res));
+router.post('/resend-verify-otp', otpRequestLimiter, (req, res) => emailAuthController.resendVerifyOtp(req, res));
+router.post('/login-email', (req, res) => emailAuthController.loginEmail(req, res));
+router.patch('/profile', authenticateToken, (req, res) => emailAuthController.updateProfile(req, res));
+router.post('/forgot-password', otpRequestLimiter, (req, res) => emailAuthController.forgotPassword(req, res));
+router.post('/reset-password', otpVerifyLimiter, (req, res) => emailAuthController.resetPassword(req, res));
+
+// Email OTP (passwordless)
 router.post(
   '/email/request-otp',
   otpRequestLimiter,

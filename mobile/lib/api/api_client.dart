@@ -3,16 +3,46 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/env.dart';
+import 'auth_service.dart';
 
 class ApiClient {
   final _storage = const FlutterSecureStorage();
+  final _authService = AuthService();
 
-  Future<String?> _getToken() => _storage.read(key: 'token');
+  Future<String?> _getAccessToken() async {
+    final access = await _storage.read(key: 'accessToken');
+    if (access != null) return access;
+    return _storage.read(key: 'token');
+  }
+
+  Future<String?> _getRefreshToken() => _storage.read(key: 'refreshToken');
 
   Future<void> _setToken(String token) =>
       _storage.write(key: 'token', value: token);
 
-  Future<void> _clearToken() => _storage.delete(key: 'token');
+  Future<void> saveTokens(String accessToken, String refreshToken) async {
+    await _storage.write(key: 'accessToken', value: accessToken);
+    await _storage.write(key: 'refreshToken', value: refreshToken);
+  }
+
+  Future<void> _clearTokens() async {
+    await _storage.delete(key: 'token');
+    await _storage.delete(key: 'accessToken');
+    await _storage.delete(key: 'refreshToken');
+  }
+
+  Future<String?> _tryRefresh() async {
+    final ref = await _getRefreshToken();
+    if (ref == null) return null;
+    try {
+      final res = await _authService.refresh(ref);
+      await saveTokens(res.accessToken, res.refreshToken);
+      return res.accessToken;
+    } catch (_) {
+      await _clearTokens();
+      return null;
+    }
+  }
 
   Future<Map<String, String>> _headers({bool withAuth = false}) async {
     final headers = <String, String>{
@@ -20,10 +50,23 @@ class ApiClient {
       'Accept': 'application/json',
     };
     if (withAuth) {
-      final token = await _getToken();
+      final token = await _getAccessToken();
       if (token != null) headers['Authorization'] = 'Bearer $token';
     }
     return headers;
+  }
+
+  Future<http.Response> _requestWithRefresh(
+    Future<http.Response> Function() fn,
+  ) async {
+    var res = await fn();
+    if (res.statusCode == 401) {
+      final newAccess = await _tryRefresh();
+      if (newAccess != null) {
+        res = await fn();
+      }
+    }
+    return res;
   }
 
   Future<AuthResponse> register({
@@ -69,13 +112,13 @@ class ApiClient {
   }
 
   Future<WalletBalance> getBalance() async {
-    final res = await http.get(
-      Uri.parse('${Env.apiBaseUrl}/wallet/balance'),
-      headers: await _headers(withAuth: true),
-    );
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/wallet/balance'),
+          headers: await _headers(withAuth: true),
+        ));
 
     if (res.statusCode == 401) {
-      await _clearToken();
+      await _clearTokens();
       throw ApiException('Session expired');
     }
     if (res.statusCode != 200) {
@@ -87,13 +130,13 @@ class ApiClient {
   }
 
   Future<TransactionsResponse> getTransactions() async {
-    final res = await http.get(
-      Uri.parse('${Env.apiBaseUrl}/wallet/transactions'),
-      headers: await _headers(withAuth: true),
-    );
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/wallet/transactions'),
+          headers: await _headers(withAuth: true),
+        ));
 
     if (res.statusCode == 401) {
-      await _clearToken();
+      await _clearTokens();
       throw ApiException('Session expired');
     }
     if (res.statusCode != 200) {
@@ -105,13 +148,13 @@ class ApiClient {
   }
 
   Future<VirtualAccount> getVirtualAccount() async {
-    final res = await http.get(
-      Uri.parse('${Env.apiBaseUrl}/wallet/virtual-account'),
-      headers: await _headers(withAuth: true),
-    );
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/wallet/virtual-account'),
+          headers: await _headers(withAuth: true),
+        ));
 
     if (res.statusCode == 401) {
-      await _clearToken();
+      await _clearTokens();
       throw ApiException('Session expired');
     }
     if (res.statusCode != 200) {
@@ -125,14 +168,14 @@ class ApiClient {
 
   /// Submit BVN for permanent deposit account (required before getVirtualAccount)
   Future<void> submitBvn(String bvn) async {
-    final res = await http.post(
-      Uri.parse('${Env.apiBaseUrl}/wallet/bvn'),
-      headers: await _headers(withAuth: true),
-      body: jsonEncode({'bvn': bvn.trim()}),
-    );
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/wallet/bvn'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({'bvn': bvn.trim()}),
+        ));
 
     if (res.statusCode == 401) {
-      await _clearToken();
+      await _clearTokens();
       throw ApiException('Session expired');
     }
     if (res.statusCode != 200) {
@@ -143,9 +186,12 @@ class ApiClient {
 
   Future<void> saveToken(String token) => _setToken(token);
 
-  Future<void> logout() => _clearToken();
+  Future<void> logout() => _clearTokens();
 
-  Future<bool> hasToken() async => (await _getToken()) != null;
+  Future<bool> hasToken() async => (await _getAccessToken()) != null;
+
+  Future<String?> getAccessToken() => _getAccessToken();
+  Future<String?> getRefreshToken() => _getRefreshToken();
 }
 
 class ApiException implements Exception {

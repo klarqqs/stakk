@@ -173,7 +173,15 @@ class _AuthScreenState extends State<AuthScreen> {
                       : Text(_isLogin ? 'Login' : 'Create Account'),
                 ),
               ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 24),
+              TextButton(
+                onPressed: () => Navigator.of(context).pushReplacementNamed('/auth/landing'),
+                child: Text(
+                  'Use Google, Apple, or Email',
+                  style: AppTheme.body(fontSize: 14, color: const Color(0xFF6B7280)),
+                ),
+              ),
+              const SizedBox(height: 24),
               Text(
                 'Save in USDC • Secured by Stellar',
                 textAlign: TextAlign.center,
