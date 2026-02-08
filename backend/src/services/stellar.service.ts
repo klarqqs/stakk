@@ -114,6 +114,39 @@ class StellarService {
     return result.hash;
   }
 
+  /**
+   * Send USDC from a user's Stellar wallet to another address.
+   * Used for withdrawals to external USDC wallets.
+   */
+  async sendUSDCFromUser(
+    userSecretKey: string,
+    recipientAddress: string,
+    amount: string
+  ): Promise<string> {
+    const userKeypair = StellarSdk.Keypair.fromSecret(userSecretKey);
+    const account = await this.server.loadAccount(userKeypair.publicKey());
+    const usdcAsset = new StellarSdk.Asset('USDC', USDC_ISSUER);
+
+    const transaction = new StellarSdk.TransactionBuilder(account, {
+      fee: StellarSdk.BASE_FEE,
+      networkPassphrase: this.networkPassphrase,
+    })
+      .addOperation(
+        StellarSdk.Operation.payment({
+          destination: recipientAddress,
+          asset: usdcAsset,
+          amount,
+        })
+      )
+      .setTimeout(30)
+      .build();
+
+    transaction.sign(userKeypair);
+    const result = await this.server.submitTransaction(transaction);
+    console.log(`✅ Sent ${amount} USDC from user to ${recipientAddress.slice(0, 8)}...`);
+    return result.hash;
+  }
+
   /** @deprecated Use fundNewAccount instead */
   async fundTestnetAccount(publicKey: string) {
     return this.fundNewAccount(publicKey);

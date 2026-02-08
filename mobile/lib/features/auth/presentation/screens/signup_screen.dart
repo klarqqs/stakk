@@ -25,11 +25,12 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final args = ModalRoute.of(context)?.settings.arguments;
-    final email = args is String ? args : widget.email;
-    if (email != null && _emailController.text != email) {
-      _emailController.text = email;
-    }
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final email = args is String ? args : widget.email;
+      if (email != null && _emailController.text != email) {
+        _emailController.text = email;
+        if (mounted) setState(() {});
+      }
   }
 
   @override
@@ -142,14 +143,19 @@ class _SignupScreenState extends State<SignupScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: _emailController,
+                readOnly: true,
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
                 enableInteractiveSelection: false,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Email',
                   hintText: 'you@example.com',
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => Navigator.of(context).pushReplacementNamed('/auth/check-email'),
+                    tooltip: 'Use different email',
+                  ),
                 ),
-                onChanged: (_) => setState(() => _error = null),
               ),
               const SizedBox(height: 16),
               TextField(

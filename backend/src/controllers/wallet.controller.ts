@@ -96,9 +96,9 @@ export class WalletController {
         });
       }
 
-      // Fetch user details including BVN
+      // Fetch user details including name and BVN
       const userResult = await pool.query(
-        'SELECT phone_number, email, bvn_encrypted FROM users WHERE id = $1',
+        'SELECT phone_number, email, first_name, last_name, bvn_encrypted FROM users WHERE id = $1',
         [userId]
       );
 
@@ -108,7 +108,9 @@ export class WalletController {
 
       const user = userResult.rows[0];
       const email = user.email || `${user.phone_number}@klyng.ng`;
-      const fullName = user.email ? user.email.split('@')[0] : `KLYNG ${user.phone_number}`;
+      const firstName = user.first_name?.trim() || (user.email ? user.email.split('@')[0] : 'User');
+      const lastName = user.last_name?.trim() || `${userId}`;
+      const fullName = `${firstName} ${lastName}`.trim();
 
       // Require BVN for static (permanent) account
       let bvn: string | undefined;
@@ -132,7 +134,7 @@ export class WalletController {
         email,
         user.phone_number,
         fullName,
-        { bvn }
+        { bvn, firstName, lastName }
       );
 
       res.json({

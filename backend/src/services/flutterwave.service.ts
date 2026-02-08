@@ -15,17 +15,20 @@ class FlutterwaveService {
     email: string,
     phoneNumber: string,
     fullName: string,
-    options?: { amount?: number; bvn?: string }
+    options?: { amount?: number; bvn?: string; firstName?: string; lastName?: string }
   ) {
     try {
       const isPermanent = Boolean(options?.bvn);
+      const firstName = options?.firstName?.trim() || fullName.split(' ')[0] || 'User';
+      const lastName = options?.lastName?.trim() || fullName.split(' ').slice(1).join(' ') || `${userId}`;
       const payload: Record<string, unknown> = {
         email: email,
         is_permanent: isPermanent,
         tx_ref: `KLYNG-${userId}-${Date.now()}`,
-        narration: `KLYNG-${userId}`,
+        narration: fullName,
+        firstname: firstName,
+        lastname: lastName,
       };
-      // SDK schema omits firstname/lastname; API accepts them - only include schema-allowed fields
       if (isPermanent && options?.bvn) payload.bvn = options.bvn;
       if (!isPermanent) payload.amount = options?.amount ?? 100; // Required for dynamic accounts
 

@@ -156,4 +156,42 @@ class AuthProvider extends ChangeNotifier {
   Future<VirtualAccount> getVirtualAccount() => _api.getVirtualAccount();
 
   Future<void> submitBvn(String bvn) => _api.submitBvn(bvn);
+
+  Future<List<Bank>> getBanks() => _api.getBanks();
+
+  Future<WithdrawToBankResult> withdrawToBank({
+    required String accountNumber,
+    required String bankCode,
+    required double amountNGN,
+  }) =>
+      _api.withdrawToBank(
+        accountNumber: accountNumber,
+        bankCode: bankCode,
+        amountNGN: amountNGN,
+      );
+
+  Future<WithdrawToUSDCResult> withdrawToUSDC({
+    required String stellarAddress,
+    required double amountUSDC,
+  }) =>
+      _api.withdrawToUSDC(
+        stellarAddress: stellarAddress,
+        amountUSDC: amountUSDC,
+      );
+
+  Future<List<BillCategory>> getBillCategories() => _api.getBillCategories();
+
+  Future<BillValidation> validateBill({
+    required String itemCode,
+    required String code,
+    required String customer,
+  }) =>
+      _api.validateBill(itemCode: itemCode, code: code, customer: customer);
+
+  Future<BillPaymentResult> payBill({
+    required String customer,
+    required double amount,
+    required String type,
+  }) =>
+      _api.payBill(customer: customer, amount: amount, type: type);
 }

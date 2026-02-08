@@ -124,6 +124,153 @@ class ApiClient {
     );
   }
 
+  /// Get list of Nigerian banks for withdrawals
+  Future<List<Bank>> getBanks() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/withdrawal/banks'),
+          headers: await _headers(withAuth: true),
+        ));
+
+    if (res.statusCode == 401) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      throw ApiException('Failed to fetch banks');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['banks'] as List<dynamic>? ?? [];
+    return list.map((e) => Bank.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Withdraw USDC to NGN bank account
+  Future<WithdrawToBankResult> withdrawToBank({
+    required String accountNumber,
+    required String bankCode,
+    required double amountNGN,
+  }) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/withdrawal/bank'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({
+            'accountNumber': accountNumber,
+            'bankCode': bankCode,
+            'amountNGN': amountNGN,
+          }),
+        ));
+
+    if (res.statusCode == 401) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Withdrawal failed');
+    }
+    return WithdrawToBankResult.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Withdraw USDC to another Stellar wallet
+  Future<WithdrawToUSDCResult> withdrawToUSDC({
+    required String stellarAddress,
+    required double amountUSDC,
+  }) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/withdrawal/usdc'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({
+            'stellarAddress': stellarAddress,
+            'amountUSDC': amountUSDC,
+          }),
+        ));
+
+    if (res.statusCode == 401) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Withdrawal failed');
+    }
+    return WithdrawToUSDCResult.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Get bill payment categories (airtime, DSTV, electricity, etc.)
+  Future<List<BillCategory>> getBillCategories() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/bills/categories'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (res.statusCode == 401) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      throw ApiException('Failed to fetch bill categories');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['categories'] as List<dynamic>? ?? [];
+    return list.map((e) => BillCategory.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Validate bill customer (meter, smartcard, phone) before payment
+  Future<BillValidation> validateBill({
+    required String itemCode,
+    required String code,
+    required String customer,
+  }) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/bills/validate'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({
+            'item_code': itemCode,
+            'code': code,
+            'customer': customer,
+          }),
+        ));
+    if (res.statusCode == 401) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Validation failed');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return BillValidation.fromJson(body['validation'] as Map<String, dynamic>);
+  }
+
+  /// Pay bill (airtime, data, DSTV, electricity)
+  Future<BillPaymentResult> payBill({
+    required String customer,
+    required double amount,
+    required String type,
+  }) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/bills/pay'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({
+            'customer': customer,
+            'amount': amount,
+            'type': type,
+          }),
+        ));
+    if (res.statusCode == 401) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Bill payment failed');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return BillPaymentResult.fromJson(body['data'] as Map<String, dynamic>);
+  }
+
   /// Submit BVN for permanent deposit account (required before getVirtualAccount)
   Future<void> submitBvn(String bvn) async {
     final res = await _requestWithRefresh(() async => http.post(
@@ -255,5 +402,130 @@ class VirtualAccount {
         accountNumber: json['account_number'] as String? ?? '',
         accountName: json['account_name'] as String? ?? '',
         bankName: json['bank_name'] as String? ?? '',
+      );
+}
+
+class Bank {
+  final int id;
+  final String code;
+  final String name;
+
+  Bank({required this.id, required this.code, required this.name});
+
+  factory Bank.fromJson(Map<String, dynamic> json) => Bank(
+        id: json['id'] as int? ?? 0,
+        code: json['code'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+      );
+}
+
+class WithdrawToBankResult {
+  final String message;
+  final String accountName;
+  final double amountNGN;
+  final double usdcDeducted;
+  final String reference;
+
+  WithdrawToBankResult({
+    required this.message,
+    required this.accountName,
+    required this.amountNGN,
+    required this.usdcDeducted,
+    required this.reference,
+  });
+
+  factory WithdrawToBankResult.fromJson(Map<String, dynamic> json) =>
+      WithdrawToBankResult(
+        message: json['message'] as String? ?? '',
+        accountName: json['accountName'] as String? ?? '',
+        amountNGN: (json['amountNGN'] as num?)?.toDouble() ?? 0,
+        usdcDeducted: (json['usdcDeducted'] as num?)?.toDouble() ?? 0,
+        reference: json['reference'] as String? ?? '',
+      );
+}
+
+class WithdrawToUSDCResult {
+  final String message;
+  final double amount;
+  final String recipient;
+
+  WithdrawToUSDCResult({
+    required this.message,
+    required this.amount,
+    required this.recipient,
+  });
+
+  factory WithdrawToUSDCResult.fromJson(Map<String, dynamic> json) =>
+      WithdrawToUSDCResult(
+        message: json['message'] as String? ?? '',
+        amount: (json['amount'] as num?)?.toDouble() ?? 0,
+        recipient: json['recipient'] as String? ?? '',
+      );
+}
+
+class BillCategory {
+  final int id;
+  final String billerCode;
+  final String name;
+  final String billerName;
+  final String itemCode;
+  final String shortName;
+  final String labelName;
+  final bool isAirtime;
+
+  BillCategory({
+    required this.id,
+    required this.billerCode,
+    required this.name,
+    required this.billerName,
+    required this.itemCode,
+    required this.shortName,
+    required this.labelName,
+    required this.isAirtime,
+  });
+
+  factory BillCategory.fromJson(Map<String, dynamic> json) => BillCategory(
+        id: json['id'] as int? ?? 0,
+        billerCode: json['biller_code'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        billerName: json['biller_name'] as String? ?? '',
+        itemCode: json['item_code'] as String? ?? '',
+        shortName: json['short_name'] as String? ?? '',
+        labelName: json['label_name'] as String? ?? '',
+        isAirtime: json['is_airtime'] as bool? ?? false,
+      );
+}
+
+class BillValidation {
+  final String? name;
+  final String? responseMessage;
+
+  BillValidation({this.name, this.responseMessage});
+
+  factory BillValidation.fromJson(Map<String, dynamic> json) => BillValidation(
+        name: json['name'] as String?,
+        responseMessage: json['response_message'] as String?,
+      );
+}
+
+class BillPaymentResult {
+  final bool success;
+  final String reference;
+  final double amount;
+  final double usdcSpent;
+
+  BillPaymentResult({
+    required this.success,
+    required this.reference,
+    required this.amount,
+    required this.usdcSpent,
+  });
+
+  factory BillPaymentResult.fromJson(Map<String, dynamic> json) =>
+      BillPaymentResult(
+        success: json['success'] as bool? ?? false,
+        reference: json['reference'] as String? ?? '',
+        amount: (json['amount'] as num?)?.toDouble() ?? 0,
+        usdcSpent: (json['usdc_spent'] as num?)?.toDouble() ?? 0,
       );
 }

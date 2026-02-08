@@ -121,8 +121,10 @@ export class EmailAuthController {
         userMessage = 'Stellar config: Set STELLAR_NETWORK=testnet in Railway, or add TREASURY_SECRET_KEY for mainnet.';
       } else if (msg.includes('Unable to fund') || msg.includes('Treasury may be low')) {
         userMessage = 'Stellar treasury is low on XLM. Fund your treasury wallet or use STELLAR_NETWORK=testnet.';
+      } else if (msg.includes('only send testing emails to your own email') || msg.includes('verify a domain')) {
+        userMessage = 'Resend trial: Can only send to your Resend account email. For testing, use that email. Or verify a domain at resend.com/domains to send to any address.';
       } else if (msg.includes('RESEND_API_KEY') || msg.includes('Resend:')) {
-        userMessage = 'Email (Resend): Add RESEND_API_KEY in Railway. Get free key at resend.com';
+        userMessage = 'Email not configured. In Railway: set EMAIL_SERVICE=resend and RESEND_API_KEY (from resend.com). Redeploy after adding.';
       } else if (msg.includes('nodemailer') || msg.includes('SMTP') || msg.includes('sendMail') || msg.includes('Invalid Login') ||
           msg.includes('ENETUNREACH') || msg.includes('ESOCKET') || msg.includes('connection timeout') || msg.includes('connect ECONNREFUSED')) {
         userMessage = 'Email failed. Use Resend: set EMAIL_SERVICE=resend and RESEND_API_KEY in Railway (free at resend.com)';
@@ -372,7 +374,7 @@ export class EmailAuthController {
         [normalizedEmail, codeHash, 'password_reset', expiresAt]
       );
 
-      await sendOTPEmail(normalizedEmail, code, 'login');
+      await sendOTPEmail(normalizedEmail, code, 'password_reset');
 
       res.json({
         success: true,

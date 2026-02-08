@@ -53,7 +53,7 @@ export class EmailOtpController {
         [normalizedEmail, codeHash, purpose, expiresAt]
       );
 
-      await sendOTPEmail(normalizedEmail, code, purpose as 'signup' | 'login');
+      await sendOTPEmail(normalizedEmail, code, purpose as 'signup' | 'login' | 'password_reset');
 
       res.json({
         success: true,

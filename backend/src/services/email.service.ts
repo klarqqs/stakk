@@ -2,10 +2,18 @@ import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 
 /** Send OTP email - uses Resend (HTTP API) or SMTP providers */
-export async function sendOTPEmail(email: string, code: string, purpose: 'signup' | 'login'): Promise<void> {
+export async function sendOTPEmail(email: string, code: string, purpose: 'signup' | 'login' | 'password_reset'): Promise<void> {
   const subject = purpose === 'signup'
     ? 'Welcome to Stakk - Verify your email'
-    : 'Your Stakk login code';
+    : purpose === 'password_reset'
+      ? 'Reset your Stakk password'
+      : 'Your Stakk login code';
+
+  const subtitle = purpose === 'signup'
+    ? 'Verify your email'
+    : purpose === 'password_reset'
+      ? 'Reset your password'
+      : 'Your login code';
 
   const html = `
 <!DOCTYPE html>
@@ -18,7 +26,7 @@ body{font-family:system-ui,sans-serif;line-height:1.6;color:#333;margin:0;paddin
 .expiry{font-size:14px;color:#6b7280;text-align:center;padding:16px}
 </style></head>
 <body><div class="container">
-<div class="header"><h1 style="margin:0">Stakk</h1><p style="margin:8px 0 0">${purpose === 'signup' ? 'Verify your email' : 'Your login code'}</p></div>
+<div class="header"><h1 style="margin:0">Stakk</h1><p style="margin:8px 0 0">${subtitle}</p></div>
 <div class="code">${code}</div>
 <div class="expiry">This code expires in 5 minutes. Never share it with anyone.</div>
 </div></body></html>`;
@@ -27,8 +35,10 @@ body{font-family:system-ui,sans-serif;line-height:1.6;color:#333;margin:0;paddin
 
   // Resend - HTTP API, no SMTP, works reliably from Railway
   if (process.env.EMAIL_SERVICE === 'resend') {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) throw new Error('RESEND_API_KEY required when EMAIL_SERVICE=resend');
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    if (!apiKey || apiKey.length < 10) {
+      throw new Error('RESEND_API_KEY is missing or invalid. Add it in Railway Variables (exact name: RESEND_API_KEY). Get free key at resend.com');
+    }
     const resend = new Resend(apiKey);
     const { error } = await resend.emails.send({
       from: `Stakk <${from}>`,
