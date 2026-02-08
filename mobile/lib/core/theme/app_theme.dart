@@ -19,7 +19,8 @@ class AppTheme {
     return brightness == Brightness.dark;
   }
 
-  /// Header font: Unbounded. Pass [context] for theme-aware colors on dark/light.
+  /// Header font: Unbounded. 
+  /// Pass [context] for theme-aware colors on dark/light.
   static TextStyle header({
     BuildContext? context,
     double? fontSize,
