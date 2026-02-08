@@ -99,19 +99,19 @@ export class EmailAuthController {
       const msg = error instanceof Error ? error.message : String(error);
       console.error('Register email error:', error);
 
-      if (msg.includes('TREASURY_SECRET_KEY') || msg.includes('fund') || msg.includes('XLM')) {
-        return res.status(503).json({
-          error: 'Account creation temporarily unavailable. Please try again later.',
-        });
+      let userMessage: string;
+      if (msg.includes('TREASURY_SECRET_KEY') || msg.includes('required for mainnet')) {
+        userMessage = 'Stellar config: Set STELLAR_NETWORK=testnet in Railway, or add TREASURY_SECRET_KEY for mainnet.';
+      } else if (msg.includes('Unable to fund') || msg.includes('Treasury may be low')) {
+        userMessage = 'Stellar treasury is low on XLM. Fund your treasury wallet or use STELLAR_NETWORK=testnet.';
+      } else if (msg.includes('nodemailer') || msg.includes('SMTP') || msg.includes('sendMail') || msg.includes('Invalid Login')) {
+        userMessage = 'Email not configured. Add SENDGRID_API_KEY or Gmail/SMTP credentials in Railway.';
+      } else if (msg.length < 120) {
+        userMessage = msg;
+      } else {
+        userMessage = `Registration failed: ${msg.slice(0, 80)}...`;
       }
-      if (msg.includes('nodemailer') || msg.includes('SMTP') || msg.includes('sendMail')) {
-        return res.status(503).json({
-          error: 'Email service unavailable. Please try again later.',
-        });
-      }
-      res.status(500).json({
-        error: msg.length < 100 ? msg : 'Registration failed',
-      });
+      res.status(500).json({ error: userMessage });
     }
   }
 
