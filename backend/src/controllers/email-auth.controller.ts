@@ -39,6 +39,8 @@ export class EmailAuthController {
 
   /** Sign up with email, password, name - creates user, sends OTP */
   async registerEmail(req: Request, res: Response) {
+    let userId: number | null = null;
+    let normalizedEmail: string | null = null;
     try {
       const { email, password, firstName, lastName } = req.body;
 
@@ -46,8 +48,8 @@ export class EmailAuthController {
         return res.status(400).json({ error: 'Email and password are required' });
       }
 
-      const normalizedEmail = email.trim().toLowerCase();
-      if (!EMAIL_REGEX.test(normalizedEmail)) {
+      normalizedEmail = email.trim().toLowerCase();
+      if (!normalizedEmail || !EMAIL_REGEX.test(normalizedEmail)) {
         return res.status(400).json({ error: 'Invalid email format' });
       }
 
@@ -71,6 +73,7 @@ export class EmailAuthController {
         normalizedEmail,
         passwordHash
       );
+      userId = user.id;
 
       await pool.query(
         `UPDATE users SET first_name = $1, last_name = $2, email_verified = FALSE
@@ -88,7 +91,8 @@ export class EmailAuthController {
         [normalizedEmail, codeHash, 'email_verification', expiresAt]
       );
 
-      await sendOTPEmail(normalizedEmail, code, 'signup');
+      // Send email BEFORE returning success - if it fails, rollback user creation
+      await sendOTPEmail(normalizedEmail!, code, 'signup');
 
       res.json({
         success: true,
@@ -99,13 +103,29 @@ export class EmailAuthController {
       const msg = error instanceof Error ? error.message : String(error);
       console.error('Register email error:', error);
 
+      // Rollback: delete user if created but email failed (prevents half-registered users)
+      if (userId != null) {
+        try {
+          await pool.query('DELETE FROM wallets WHERE user_id = $1', [userId]);
+          if (normalizedEmail) {
+            await pool.query('DELETE FROM otp_codes WHERE email = $1 AND purpose = $2', [normalizedEmail, 'email_verification']);
+          }
+          await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+        } catch (rollbackErr) {
+          console.error('Rollback failed:', rollbackErr);
+        }
+      }
+
       let userMessage: string;
       if (msg.includes('TREASURY_SECRET_KEY') || msg.includes('required for mainnet')) {
         userMessage = 'Stellar config: Set STELLAR_NETWORK=testnet in Railway, or add TREASURY_SECRET_KEY for mainnet.';
       } else if (msg.includes('Unable to fund') || msg.includes('Treasury may be low')) {
         userMessage = 'Stellar treasury is low on XLM. Fund your treasury wallet or use STELLAR_NETWORK=testnet.';
-      } else if (msg.includes('nodemailer') || msg.includes('SMTP') || msg.includes('sendMail') || msg.includes('Invalid Login')) {
-        userMessage = 'Email not configured. Add SENDGRID_API_KEY or Gmail/SMTP credentials in Railway.';
+      } else if (msg.includes('RESEND_API_KEY') || msg.includes('Resend:')) {
+        userMessage = 'Email (Resend): Add RESEND_API_KEY in Railway. Get free key at resend.com';
+      } else if (msg.includes('nodemailer') || msg.includes('SMTP') || msg.includes('sendMail') || msg.includes('Invalid Login') ||
+          msg.includes('ENETUNREACH') || msg.includes('ESOCKET') || msg.includes('connection timeout') || msg.includes('connect ECONNREFUSED')) {
+        userMessage = 'Email failed. Use Resend: set EMAIL_SERVICE=resend and RESEND_API_KEY in Railway (free at resend.com)';
       } else if (msg.length < 120) {
         userMessage = msg;
       } else {

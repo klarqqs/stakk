@@ -1,37 +1,11 @@
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-const transporter = nodemailer.createTransport(
-  process.env.EMAIL_SERVICE === 'sendgrid'
-    ? {
-        host: 'smtp.sendgrid.net',
-        port: 587,
-        auth: {
-          user: 'apikey',
-          pass: process.env.SENDGRID_API_KEY
-        }
-      }
-    : process.env.EMAIL_SERVICE === 'gmail'
-      ? {
-          service: 'gmail',
-          auth: {
-            user: process.env.GMAIL_USER,
-            pass: process.env.GMAIL_APP_PASSWORD
-          }
-        }
-      : {
-          host: process.env.SMTP_HOST || 'smtp.gmail.com',
-          port: Number(process.env.SMTP_PORT) || 587,
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASSWORD
-          }
-        }
-);
-
+/** Send OTP email - uses Resend (HTTP API) or SMTP providers */
 export async function sendOTPEmail(email: string, code: string, purpose: 'signup' | 'login'): Promise<void> {
   const subject = purpose === 'signup'
-    ? 'Welcome to KLYNG - Verify your email'
-    : 'Your KLYNG login code';
+    ? 'Welcome to Stakk - Verify your email'
+    : 'Your Stakk login code';
 
   const html = `
 <!DOCTYPE html>
@@ -44,15 +18,65 @@ body{font-family:system-ui,sans-serif;line-height:1.6;color:#333;margin:0;paddin
 .expiry{font-size:14px;color:#6b7280;text-align:center;padding:16px}
 </style></head>
 <body><div class="container">
-<div class="header"><h1 style="margin:0">KLYNG</h1><p style="margin:8px 0 0">${purpose === 'signup' ? 'Verify your email' : 'Your login code'}</p></div>
+<div class="header"><h1 style="margin:0">Stakk</h1><p style="margin:8px 0 0">${purpose === 'signup' ? 'Verify your email' : 'Your login code'}</p></div>
 <div class="code">${code}</div>
 <div class="expiry">This code expires in 5 minutes. Never share it with anyone.</div>
 </div></body></html>`;
 
+  const from = process.env.EMAIL_FROM || 'onboarding@resend.dev';
+
+  // Resend - HTTP API, no SMTP, works reliably from Railway
+  if (process.env.EMAIL_SERVICE === 'resend') {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) throw new Error('RESEND_API_KEY required when EMAIL_SERVICE=resend');
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+      from: `Stakk <${from}>`,
+      to: email,
+      subject,
+      html,
+    });
+    if (error) throw new Error(`Resend: ${error.message}`);
+    return;
+  }
+
+  // SendGrid SMTP
+  if (process.env.EMAIL_SERVICE === 'sendgrid') {
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      auth: {
+        user: 'apikey',
+        pass: process.env.SENDGRID_API_KEY,
+      },
+    });
+    await transporter.sendMail({ from: `Stakk <${from}>`, to: email, subject, html });
+    return;
+  }
+
+  // Gmail or custom SMTP
+  const transporter = nodemailer.createTransport(
+    process.env.EMAIL_SERVICE === 'gmail'
+      ? {
+          service: 'gmail',
+          auth: {
+            user: process.env.GMAIL_USER,
+            pass: process.env.GMAIL_APP_PASSWORD,
+          },
+        }
+      : {
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: Number(process.env.SMTP_PORT) || 587,
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASSWORD,
+          },
+        }
+  );
   await transporter.sendMail({
-    from: `"KLYNG" <${process.env.EMAIL_FROM || 'noreply@klyng.ng'}>`,
+    from: `Stakk <${from}>`,
     to: email,
     subject,
-    html
+    html,
   });
 }

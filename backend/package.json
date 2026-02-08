@@ -33,6 +33,7 @@
     "nodemailer": "^8.0.1",
     "paystack": "^2.0.1",
     "pg": "^8.18.0",
+    "resend": "^6.9.1",
     "stellar-sdk": "^13.3.0"
   },
   "devDependencies": {
