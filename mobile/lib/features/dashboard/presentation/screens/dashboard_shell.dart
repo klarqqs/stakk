@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stakk_savings/core/components/app_bottom_nav_bar.dart';
 import 'package:stakk_savings/features/home/presentation/screens/home_screen.dart';
-import 'package:stakk_savings/features/bills/presentation/screens/bills_screen.dart';
+import 'package:stakk_savings/features/bills/presentation/screens/bills_categories_screen.dart';
 import 'package:stakk_savings/features/invest/presentation/screens/invest_screen.dart';
 import 'package:stakk_savings/features/card/presentation/screens/card_screen.dart';
 import 'package:stakk_savings/features/more/presentation/screens/more_screen.dart';
@@ -18,7 +18,7 @@ class _DashboardShellState extends State<DashboardShell> {
 
   final _screens = const [
     HomeScreen(),
-    BillsScreen(),
+    BillsCategoriesScreen(),
     InvestScreen(),
     CardScreen(),
     MoreScreen(),

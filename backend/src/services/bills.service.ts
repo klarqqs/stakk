@@ -121,6 +121,55 @@ class BillsService {
     throw new Error('Failed to fetch bill categories. Please check your Flutterwave API keys and IP whitelist.');
   }
 
+  /** Get top-level categories only (Airtime, Data, Electricity, TV Cable, etc.) */
+  async getTopCategories() {
+    const topRes = await flwFetch<{ status?: string; data?: Array<{ id?: number; code?: string; name?: string; description?: string; country_code?: string }> }>('/top-bill-categories?country=NG');
+    if (topRes?.status !== 'success' || !Array.isArray(topRes.data)) {
+      throw new Error((topRes as { message?: string })?.message || 'Failed to fetch categories');
+    }
+    return topRes.data
+      .filter((c) => (c.country_code ?? 'NG') === 'NG')
+      .map((c) => ({
+        id: c.id ?? 0,
+        code: c.code ?? '',
+        name: c.name ?? '',
+        description: c.description ?? c.name ?? '',
+      }));
+  }
+
+  /** Get providers (billers) for a category */
+  async getProviders(categoryCode: string) {
+    const res = await flwFetch<{ status?: string; data?: Array<{ id?: number; name?: string; biller_code?: string; short_name?: string; country_code?: string }> }>(`/billers?category=${encodeURIComponent(categoryCode)}&country=NG`);
+    if (res?.status !== 'success' || !Array.isArray(res.data)) {
+      throw new Error((res as { message?: string })?.message || 'Failed to fetch providers');
+    }
+    return res.data
+      .filter((b) => (b.country_code ?? 'NG') === 'NG')
+      .map((b) => ({
+        id: b.id ?? 0,
+        billerCode: b.biller_code ?? '',
+        name: b.name ?? '',
+        shortName: b.short_name ?? b.name ?? '',
+      }));
+  }
+
+  /** Get products for a provider (biller) */
+  async getProducts(billerCode: string) {
+    try {
+      const res = await flwFetch<{ status?: string; data?: { products?: Array<{ code?: string; name?: string; amount?: string }> } }>(`/billers/${encodeURIComponent(billerCode)}/products`);
+      if (res?.status !== 'success') return [];
+      const products = res.data?.products ?? [];
+      return products.map((p) => ({
+        id: p.code ?? '',
+        productCode: p.code ?? '',
+        name: p.name ?? '',
+        amount: parseFloat(String(p.amount ?? '0')) || 0,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
   /** Validate customer (meter number, smartcard, phone) before payment */
   async validate(itemCode: string, billerCode: string, customer: string) {
     const response = await flw.Bills.validate({

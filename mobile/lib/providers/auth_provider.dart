@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:stakk_savings/core/constants/storage_keys.dart';
+import 'package:stakk_savings/features/bills/domain/models/bill_models.dart';
 import '../api/api_client.dart';
 import '../api/auth_service.dart';
 
@@ -131,6 +132,14 @@ class AuthProvider extends ChangeNotifier {
         stellarAddress: a.stellarAddress,
       );
 
+  /// Call when API returns session expired – clears state and navigates to login
+  Future<void> handleSessionExpired(BuildContext context) async {
+    await logout();
+    if (context.mounted) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (r) => false);
+    }
+  }
+
   Future<void> logout() async {
     try {
       final accessToken = await _api.getAccessToken();
@@ -180,6 +189,9 @@ class AuthProvider extends ChangeNotifier {
       );
 
   Future<List<BillCategory>> getBillCategories() => _api.getBillCategories();
+  Future<List<BillCategoryModel>> getBillTopCategories() => _api.getBillTopCategories();
+  Future<List<BillProviderModel>> getBillProviders(String categoryCode) => _api.getBillProviders(categoryCode);
+  Future<List<BillProductModel>> getBillProducts(String billerCode) => _api.getBillProducts(billerCode);
 
   Future<BillValidation> validateBill({
     required String itemCode,

@@ -3,6 +3,43 @@ import billsService from '../services/bills.service.ts';
 import type { AuthRequest } from '../middleware/auth.middleware.ts';
 
 export class BillsController {
+  async getTopCategories(_req: AuthRequest, res: Response) {
+    try {
+      const categories = await billsService.getTopCategories();
+      res.json({ categories });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to fetch categories';
+      console.error('Bills top categories error:', error);
+      res.status(500).json({ error: msg });
+    }
+  }
+
+  async getProviders(req: AuthRequest, res: Response) {
+    try {
+      const code = typeof req.params.code === 'string' ? req.params.code : req.params.code?.[0];
+      if (!code) return res.status(400).json({ error: 'Category code required' });
+      const providers = await billsService.getProviders(code);
+      res.json({ providers });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to fetch providers';
+      console.error('Bills providers error:', error);
+      res.status(500).json({ error: msg });
+    }
+  }
+
+  async getProducts(req: AuthRequest, res: Response) {
+    try {
+      const code = typeof req.params.code === 'string' ? req.params.code : req.params.code?.[0];
+      if (!code) return res.status(400).json({ error: 'Biller code required' });
+      const products = await billsService.getProducts(code);
+      res.json({ products });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Failed to fetch products';
+      console.error('Bills products error:', error);
+      res.status(500).json({ error: msg });
+    }
+  }
+
   async getCategories(_req: AuthRequest, res: Response) {
     try {
       const categories = await billsService.getCategories();

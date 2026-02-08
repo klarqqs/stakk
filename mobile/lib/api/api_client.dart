@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/env.dart';
+import '../features/bills/domain/models/bill_models.dart';
 import 'auth_service.dart';
 
 class ApiClient {
@@ -56,11 +57,14 @@ class ApiClient {
     return headers;
   }
 
+  /// 401 = no token, 403 = invalid/expired token (backend auth middleware)
+  bool _isAuthError(int? code) => code == 401 || code == 403;
+
   Future<http.Response> _requestWithRefresh(
     Future<http.Response> Function() fn,
   ) async {
     var res = await fn();
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       final newAccess = await _tryRefresh();
       if (newAccess != null) {
         res = await fn();
@@ -75,7 +79,7 @@ class ApiClient {
           headers: await _headers(withAuth: true),
         ));
 
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }
@@ -93,7 +97,7 @@ class ApiClient {
           headers: await _headers(withAuth: true),
         ));
 
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }
@@ -111,7 +115,7 @@ class ApiClient {
           headers: await _headers(withAuth: true),
         ));
 
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }
@@ -131,7 +135,7 @@ class ApiClient {
           headers: await _headers(withAuth: true),
         ));
 
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }
@@ -159,7 +163,7 @@ class ApiClient {
           }),
         ));
 
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }
@@ -186,7 +190,7 @@ class ApiClient {
           }),
         ));
 
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }
@@ -199,13 +203,70 @@ class ApiClient {
     );
   }
 
-  /// Get bill payment categories (airtime, DSTV, electricity, etc.)
+  /// Get top-level bill categories (Airtime, Data, Electricity, TV Cable, etc.)
+  Future<List<BillCategoryModel>> getBillTopCategories() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/bills/categories/top'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch categories');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['categories'] as List<dynamic>? ?? [];
+    return list.map((e) => BillCategoryModel.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Get providers for a category (e.g. MTN, Glo for Airtime)
+  Future<List<BillProviderModel>> getBillProviders(String categoryCode) async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/bills/categories/${Uri.encodeComponent(categoryCode)}/providers'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch providers');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['providers'] as List<dynamic>? ?? [];
+    return list.map((e) => BillProviderModel.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Get products for a provider (e.g. data bundles, DSTV plans)
+  Future<List<BillProductModel>> getBillProducts(String billerCode) async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/bills/providers/${Uri.encodeComponent(billerCode)}/products'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch products');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final list = body['products'] as List<dynamic>? ?? [];
+    return list.map((e) => BillProductModel.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  /// Get bill payment categories (legacy flat list)
   Future<List<BillCategory>> getBillCategories() async {
     final res = await _requestWithRefresh(() async => http.get(
           Uri.parse('${Env.apiBaseUrl}/bills/categories'),
           headers: await _headers(withAuth: true),
         ));
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }
@@ -233,7 +294,7 @@ class ApiClient {
             'customer': customer,
           }),
         ));
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }
@@ -260,7 +321,7 @@ class ApiClient {
             'type': type,
           }),
         ));
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }
@@ -278,7 +339,7 @@ class ApiClient {
           Uri.parse('${Env.apiBaseUrl}/bills/status/${Uri.encodeComponent(reference)}'),
           headers: await _headers(withAuth: true),
         ));
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }
@@ -298,7 +359,7 @@ class ApiClient {
           body: jsonEncode({'bvn': bvn.trim()}),
         ));
 
-    if (res.statusCode == 401) {
+    if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       throw ApiException('Session expired');
     }

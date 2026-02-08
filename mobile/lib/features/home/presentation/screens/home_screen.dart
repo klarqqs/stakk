@@ -42,9 +42,13 @@ class _HomeScreenState extends State<HomeScreen> {
         _transactions = (results[1] as TransactionsResponse).transactions;
       });
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (e.message == 'Session expired') {
+        if (mounted) await context.read<AuthProvider>().handleSessionExpired(context);
+      } else if (mounted) {
+        setState(() => _error = e.message);
+      }
     } catch (e) {
-      setState(() => _error = 'Failed to load data');
+      if (mounted) setState(() => _error = 'Failed to load data');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -677,6 +681,17 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
           _banksLoading = false;
         });
       }
+    } on ApiException catch (e) {
+      if (mounted) {
+        if (e.message == 'Session expired') {
+          await context.read<AuthProvider>().handleSessionExpired(context);
+        } else {
+          setState(() {
+            _banks = [];
+            _banksLoading = false;
+          });
+        }
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -729,10 +744,14 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
       }
     } on ApiException catch (e) {
       if (mounted) {
-        setState(() {
-          _error = e.message;
-          _loading = false;
-        });
+        if (e.message == 'Session expired') {
+          await context.read<AuthProvider>().handleSessionExpired(context);
+        } else {
+          setState(() {
+            _error = e.message;
+            _loading = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -938,10 +957,14 @@ class _WithdrawToUsdcSheetState extends State<_WithdrawToUsdcSheet> {
       }
     } on ApiException catch (e) {
       if (mounted) {
-        setState(() {
-          _error = e.message;
-          _loading = false;
-        });
+        if (e.message == 'Session expired') {
+          await context.read<AuthProvider>().handleSessionExpired(context);
+        } else {
+          setState(() {
+            _error = e.message;
+            _loading = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1087,12 +1110,16 @@ class _VirtualAccountBottomSheetState extends State<_VirtualAccountBottomSheet> 
       }
     } on ApiException catch (e) {
       if (mounted) {
-        final needsBvn = e.message.toLowerCase().contains('bvn');
-        setState(() {
-          _error = needsBvn ? null : e.message;
-          _needsBvn = needsBvn;
-          _loading = false;
-        });
+        if (e.message == 'Session expired') {
+          await context.read<AuthProvider>().handleSessionExpired(context);
+        } else {
+          final needsBvn = e.message.toLowerCase().contains('bvn');
+          setState(() {
+            _error = needsBvn ? null : e.message;
+            _needsBvn = needsBvn;
+            _loading = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1119,10 +1146,14 @@ class _VirtualAccountBottomSheetState extends State<_VirtualAccountBottomSheet> 
       if (mounted) await _load();
     } on ApiException catch (e) {
       if (mounted) {
-        setState(() {
-          _error = e.message;
-          _loading = false;
-        });
+        if (e.message == 'Session expired') {
+          await context.read<AuthProvider>().handleSessionExpired(context);
+        } else {
+          setState(() {
+            _error = e.message;
+            _loading = false;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
