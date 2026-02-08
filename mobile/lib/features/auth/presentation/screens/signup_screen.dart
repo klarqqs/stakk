@@ -79,8 +79,11 @@ class _SignupScreenState extends State<SignupScreen> {
       );
     } on AuthException catch (e) {
       setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = 'Registration failed');
+    } catch (e, st) {
+      debugPrint('Signup error: $e\n$st');
+      setState(() => _error = e.toString().contains('Connection') || e.toString().contains('Socket')
+          ? 'Cannot reach server. Check your connection.'
+          : 'Registration failed. Please try again.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }

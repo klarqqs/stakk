@@ -96,8 +96,22 @@ export class EmailAuthController {
         expiresIn: OTP_EXPIRY_MINUTES * 60
       });
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       console.error('Register email error:', error);
-      res.status(500).json({ error: 'Registration failed' });
+
+      if (msg.includes('TREASURY_SECRET_KEY') || msg.includes('fund') || msg.includes('XLM')) {
+        return res.status(503).json({
+          error: 'Account creation temporarily unavailable. Please try again later.',
+        });
+      }
+      if (msg.includes('nodemailer') || msg.includes('SMTP') || msg.includes('sendMail')) {
+        return res.status(503).json({
+          error: 'Email service unavailable. Please try again later.',
+        });
+      }
+      res.status(500).json({
+        error: msg.length < 100 ? msg : 'Registration failed',
+      });
     }
   }
 

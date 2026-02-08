@@ -152,19 +152,38 @@ class AuthService {
     String? firstName,
     String? lastName,
   }) async {
-    final res = await http.post(
-      Uri.parse('$_base/register-email'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-        'firstName': firstName,
-        'lastName': lastName,
-      }),
-    );
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    if (res.statusCode != 200) {
-      throw AuthException(body['error']?.toString() ?? 'Registration failed');
+    try {
+      final res = await http.post(
+        Uri.parse('$_base/register-email'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'firstName': firstName,
+          'lastName': lastName,
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      Map<String, dynamic>? body;
+      try {
+        body = jsonDecode(res.body) as Map<String, dynamic>?;
+      } catch (_) {
+        throw AuthException('Invalid server response (${res.statusCode})');
+      }
+
+      if (res.statusCode != 200) {
+        throw AuthException(body?['error']?.toString() ?? 'Registration failed');
+      }
+    } on AuthException {
+      rethrow;
+    } catch (e) {
+      throw AuthException(
+        e.toString().contains('SocketException') || e.toString().contains('Connection refused')
+            ? 'Cannot reach server. Check your connection.'
+            : e.toString().contains('Timeout')
+                ? 'Connection timed out. Please try again.'
+                : 'Registration failed: ${e.toString().split('\n').first}',
+      );
     }
   }
 
