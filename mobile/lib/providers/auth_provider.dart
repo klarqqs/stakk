@@ -216,4 +216,9 @@ class AuthProvider extends ChangeNotifier {
 
   Future<Map<String, dynamic>> getBillStatus(String reference) =>
       _api.getBillStatus(reference);
+
+  Future<BlendApyResponse> getBlendApy() => _api.getBlendApy();
+  Future<BlendEarningsResponse> getBlendEarnings() => _api.getBlendEarnings();
+  Future<BlendEnableResult> blendEnable(double amount) => _api.blendEnable(amount);
+  Future<BlendDisableResult> blendDisable(double amount) => _api.blendDisable(amount);
 }

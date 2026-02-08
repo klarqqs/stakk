@@ -7,6 +7,7 @@ import webhookRoutes from './routes/webhook.routes.ts';
 import adminRoutes from './routes/admin.routes.ts';
 import withdrawalRoutes from './routes/withdrawal.routes.ts';
 import billsRoutes from './routes/bills.routes.ts';
+import blendRoutes from './routes/blend.routes.ts';
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/withdrawal', withdrawalRoutes);
 app.use('/api/bills', billsRoutes);
+app.use('/api/blend', blendRoutes);
 
 // Health check (Railway and other platforms)
 app.get('/health', (req, res) => {

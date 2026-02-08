@@ -269,18 +269,18 @@ class _BalanceCard extends StatelessWidget {
               color: Colors.white,
             ),
           ),
-          Text(
-            'USDC',
-            style: AppTheme.body(
-              context: context,
-              fontSize: 14,
-              color: Colors.white.withOpacity(0.8),
-            ),
-          ),
+          // Text(
+          //   'USDC',
+          //   style: AppTheme.body(
+          //     context: context,
+          //     fontSize: 14,
+          //     color: Colors.white.withOpacity(0.8),
+          //   ),
+          // ),
           const SizedBox(height: 6),
           Text(
             '≈ ₦${AppConstants.formatNgn((balance.usdc * AppConstants.ngnUsdRate).round())}',
-            style: AppTheme.body(
+            style: AppTheme.header(
               context: context,
               fontSize: 14,
               color: Colors.white.withOpacity(0.8),

@@ -397,6 +397,78 @@ class ApiClient {
     }
   }
 
+  /// Blend USDC Yield - get current APY
+  Future<BlendApyResponse> getBlendApy() async {
+    final res = await http.get(
+      Uri.parse('${Env.apiBaseUrl}/blend/apy'),
+      headers: await _headers(),
+    );
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch APY');
+    }
+    return BlendApyResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Blend - get user earnings
+  Future<BlendEarningsResponse> getBlendEarnings() async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/blend/earnings'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch earnings');
+    }
+    return BlendEarningsResponse.fromJson(
+      jsonDecode(res.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Blend - enable earning (deposit USDC to Blend)
+  Future<BlendEnableResult> blendEnable(double amount) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/blend/enable'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({'amount': amount}),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to enable earning');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return BlendEnableResult.fromJson(body['data'] as Map<String, dynamic>);
+  }
+
+  /// Blend - disable earning (withdraw USDC from Blend)
+  Future<BlendDisableResult> blendDisable(double amount) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/blend/disable'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({'amount': amount}),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to disable earning');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return BlendDisableResult.fromJson(body['data'] as Map<String, dynamic>);
+  }
+
   Future<void> saveToken(String token) => _setToken(token);
 
   Future<void> logout() => _clearTokens();
@@ -635,5 +707,71 @@ class BillPaymentResult {
         reference: json['reference'] as String? ?? '',
         amount: (json['amount'] as num?)?.toDouble() ?? 0,
         usdcSpent: (json['usdc_spent'] as num?)?.toDouble() ?? 0,
+      );
+}
+
+class BlendApyResponse {
+  final String apy;
+  final double raw;
+
+  BlendApyResponse({required this.apy, required this.raw});
+
+  factory BlendApyResponse.fromJson(Map<String, dynamic> json) =>
+      BlendApyResponse(
+        apy: json['apy'] as String? ?? '5.5%',
+        raw: (json['raw'] as num?)?.toDouble() ?? 5.5,
+      );
+}
+
+class BlendEarningsResponse {
+  final double supplied;
+  final double earned;
+  final double currentAPY;
+  final double totalValue;
+  final bool isEarning;
+
+  BlendEarningsResponse({
+    required this.supplied,
+    required this.earned,
+    required this.currentAPY,
+    required this.totalValue,
+    required this.isEarning,
+  });
+
+  factory BlendEarningsResponse.fromJson(Map<String, dynamic> json) =>
+      BlendEarningsResponse(
+        supplied: (json['supplied'] as num?)?.toDouble() ?? 0,
+        earned: (json['earned'] as num?)?.toDouble() ?? 0,
+        currentAPY: (json['currentAPY'] as num?)?.toDouble() ?? 5.5,
+        totalValue: (json['totalValue'] as num?)?.toDouble() ?? 0,
+        isEarning: json['isEarning'] as bool? ?? false,
+      );
+}
+
+class BlendEnableResult {
+  final bool success;
+  final double amount;
+  final double apy;
+
+  BlendEnableResult({required this.success, required this.amount, required this.apy});
+
+  factory BlendEnableResult.fromJson(Map<String, dynamic> json) =>
+      BlendEnableResult(
+        success: json['success'] as bool? ?? true,
+        amount: (json['amount'] as num?)?.toDouble() ?? 0,
+        apy: (json['apy'] as num?)?.toDouble() ?? 5.5,
+      );
+}
+
+class BlendDisableResult {
+  final bool success;
+  final double withdrawn;
+
+  BlendDisableResult({required this.success, required this.withdrawn});
+
+  factory BlendDisableResult.fromJson(Map<String, dynamic> json) =>
+      BlendDisableResult(
+        success: json['success'] as bool? ?? true,
+        withdrawn: (json['withdrawn'] as num?)?.toDouble() ?? 0,
       );
 }
