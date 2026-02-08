@@ -30,12 +30,33 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Stakk API is running' });
 });
 
+// Debug: Get server's outbound IP (for Flutterwave whitelist)
+app.get('/api/debug/outbound-ip', async (_req, res) => {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json');
+    const json = (await r.json()) as { ip?: string };
+    res.json({ ip: json.ip || 'unknown', hint: 'Add this IP to Flutterwave Settings → Whitelisted IP addresses' });
+  } catch (e) {
+    res.status(500).json({ error: 'Could not fetch IP', detail: String(e) });
+  }
+});
+
 // Root redirect for platform health checks
 app.get('/', (req, res) => res.redirect('/health'));
 
 // Start server - bind to 0.0.0.0 so Railway can reach it from outside the container
-app.listen(Number(PORT), '0.0.0.0', () => {
+app.listen(Number(PORT), '0.0.0.0', async () => {
   console.log(`Server running on port ${PORT}`);
+  // Log outbound IP for Flutterwave whitelist (Railway, Render, etc.)
+  try {
+    const r = await fetch('https://api.ipify.org?format=json');
+    const json = (await r.json()) as { ip?: string };
+    if (json.ip) {
+      console.log(`📍 Outbound IP (add to Flutterwave whitelist): ${json.ip}`);
+    }
+  } catch {
+    // ignore
+  }
   if (process.env.STELLAR_NETWORK === 'mainnet') {
     import('./services/stellar-monitor.service.ts').then((m) => m.default.startMonitoring());
   }
