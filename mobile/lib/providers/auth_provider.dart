@@ -194,4 +194,7 @@ class AuthProvider extends ChangeNotifier {
     required String type,
   }) =>
       _api.payBill(customer: customer, amount: amount, type: type);
+
+  Future<Map<String, dynamic>> getBillStatus(String reference) =>
+      _api.getBillStatus(reference);
 }

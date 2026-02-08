@@ -32,8 +32,38 @@ router.post('/flutterwave', async (req: Request, res: Response) => {
     }
 
     const payload = req.body;
+    const event = payload?.event as string | undefined;
 
-    if (payload?.event !== 'charge.completed' || payload?.data?.status !== 'successful') {
+    // Handle bill payment events (e.g. bill.payment.completed, billpayment.failed)
+    if (event?.toLowerCase().includes('bill')) {
+      const data = payload?.data ?? {};
+      const ref = String(data.reference ?? data.reference2 ?? data.tx_ref ?? '');
+      if (ref.startsWith('STAKK-BILL-')) {
+        const status = (data.status ?? '').toLowerCase();
+        const isFailed = status.includes('fail') || status.includes('reversed');
+        if (isFailed) {
+          const tx = await pool.query(
+            "SELECT id, user_id, amount_usdc FROM transactions WHERE reference = $1 AND type = 'bill_payment' AND status = 'completed'",
+            [ref]
+          );
+          if (tx.rows.length > 0) {
+            const { id: txId, user_id: uid, amount_usdc } = tx.rows[0];
+            await pool.query(
+              "UPDATE transactions SET status = 'failed' WHERE id = $1",
+              [txId]
+            );
+            await pool.query(
+              'UPDATE wallets SET usdc_balance = usdc_balance + $1, last_synced_at = NOW() WHERE user_id = $2',
+              [amount_usdc ?? 0, uid]
+            );
+            if (!isProd) console.log(`🔄 Bill payment reversed: ${ref}`);
+          }
+        }
+      }
+      return res.status(200).json({ status: 'success', message: 'Webhook processed' });
+    }
+
+    if (event !== 'charge.completed' || payload?.data?.status !== 'successful') {
       return res.status(200).json({ status: 'success', message: 'Webhook processed' });
     }
 

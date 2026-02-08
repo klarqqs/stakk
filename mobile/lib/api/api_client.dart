@@ -271,6 +271,24 @@ class ApiClient {
     return BillPaymentResult.fromJson(body['data'] as Map<String, dynamic>);
   }
 
+  /// Get bill payment status by reference
+  Future<Map<String, dynamic>> getBillStatus(String reference) async {
+    final res = await _requestWithRefresh(() async => http.get(
+          Uri.parse('${Env.apiBaseUrl}/bills/status/${Uri.encodeComponent(reference)}'),
+          headers: await _headers(withAuth: true),
+        ));
+    if (res.statusCode == 401) {
+      await _clearTokens();
+      throw ApiException('Session expired');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch status');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return body['status'] as Map<String, dynamic>? ?? {};
+  }
+
   /// Submit BVN for permanent deposit account (required before getVirtualAccount)
   Future<void> submitBvn(String bvn) async {
     final res = await _requestWithRefresh(() async => http.post(
