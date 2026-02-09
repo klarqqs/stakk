@@ -1,5 +1,5 @@
 import * as Sentry from '@sentry/node';
-import { ProfilingIntegration } from '@sentry/profiling-node';
+import { nodeProfilingIntegration } from '@sentry/profiling-node';
 
 /**
  * Initialize Sentry for error tracking and performance monitoring.
@@ -26,7 +26,7 @@ export function initializeSentry() {
     tracesSampleRate: 0.2, // 20% of transactions for performance monitoring
     profilesSampleRate: environment === 'production' ? 0.1 : 1.0, // 10% in prod, 100% in dev
     integrations: [
-      new ProfilingIntegration(),
+      nodeProfilingIntegration(),
     ],
     beforeSend(event, hint) {
       // Filter out sensitive data
