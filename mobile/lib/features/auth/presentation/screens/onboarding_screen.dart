@@ -116,13 +116,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // Check if Sign in with Apple is available
       final isAvailable = await SignInWithApple.isAvailable();
       if (!isAvailable) {
-        if (mounted) {
-          setState(() => _isAppleLoading = false);
-          TopSnackbar.error(
-            context,
-            'Sign in with Apple is not available. Please sign in to iCloud on your device.',
-          );
-        }
+        if (!mounted) return;
+        setState(() => _isAppleLoading = false);
+        TopSnackbar.error(
+          context,
+          'Sign in with Apple is not available. Please sign in to iCloud on your device.',
+        );
         return;
       }
 
@@ -199,12 +198,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (!mounted) return;
     const storage = FlutterSecureStorage();
     final passcode = await storage.read(key: StorageKeys.passcode);
+    if (!mounted) return;
     if (passcode != null && passcode.isNotEmpty) {
       Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (r) => false);
     } else {
-      Navigator.of(
-        context,
-      ).pushReplacementNamed('/auth/create-passcode', arguments: true);
+      Navigator.of(context).pushReplacementNamed('/auth/create-passcode', arguments: true);
     }
   }
 

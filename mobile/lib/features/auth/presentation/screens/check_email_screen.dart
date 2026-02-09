@@ -159,11 +159,13 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
               _GoogleSignInButton(
                 onPressed: _handleGoogleSignIn,
                 isDark: Theme.of(context).brightness == Brightness.dark,
+                isLoading: _isGoogleLoading,
               ),
               const SizedBox(height: 12),
               _AppleSignInButton(
                 onPressed: _handleAppleSignIn,
                 isDark: Theme.of(context).brightness == Brightness.dark,
+                isLoading: _isAppleLoading,
               ),
             ],
           ),
@@ -312,7 +314,7 @@ class _GoogleSignInButton extends StatelessWidget {
       width: double.infinity,
       height: 56,
       child: OutlinedButton(
-        onPressed: onPressed,
+        onPressed: isLoading ? null : onPressed,
         style: OutlinedButton.styleFrom(
           backgroundColor: Colors.white,
           foregroundColor: const Color(0xFF1F1F1F),
@@ -325,34 +327,45 @@ class _GoogleSignInButton extends StatelessWidget {
           ),
           elevation: 0,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/google_logo.png',
-              width: 20,
-              height: 20,
-              errorBuilder: (context, error, stackTrace) {
-                // Fallback if image not found
-                return const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: Icon(Icons.g_mobiledata, size: 20),
-                );
-              },
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Continue with Google',
-              style: AppTheme.body(
-                context: context,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1F1F1F),
+        child: isLoading
+            ? SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    const Color(0xFF1F1F1F),
+                  ),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/images/google_logo.png',
+                    width: 20,
+                    height: 20,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback if image not found
+                      return const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: Icon(Icons.g_mobiledata, size: 20),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Continue with Google',
+                    style: AppTheme.body(
+                      context: context,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF1F1F1F),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -363,10 +376,12 @@ class _GoogleSignInButton extends StatelessWidget {
 class _AppleSignInButton extends StatelessWidget {
   final VoidCallback onPressed;
   final bool isDark;
+  final bool isLoading;
 
   const _AppleSignInButton({
     required this.onPressed,
     required this.isDark,
+    this.isLoading = false,
   });
 
   @override
@@ -375,7 +390,7 @@ class _AppleSignInButton extends StatelessWidget {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
@@ -384,35 +399,44 @@ class _AppleSignInButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              'assets/images/apple_logo.svg',
-              width: 20,
-              height: 20,
-              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-              errorBuilder: (context, error, stackTrace) {
-                // Fallback if SVG not found
-                return const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: Icon(Icons.apple, size: 20, color: Colors.white),
-                );
-              },
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Continue with Apple',
-              style: AppTheme.body(
-                context: context,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'assets/images/apple_logo.svg',
+                    width: 20,
+                    height: 20,
+                    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback if SVG not found
+                      return const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: Icon(Icons.apple, size: 20, color: Colors.white),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Continue with Apple',
+                    style: AppTheme.body(
+                      context: context,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
