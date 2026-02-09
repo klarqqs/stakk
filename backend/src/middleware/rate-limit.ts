@@ -53,12 +53,20 @@ export const passwordResetLimiter = rateLimit({
 });
 
 // General API Limiter - For authenticated endpoints
+// Very high limit to prevent 429s during normal app usage:
+// - Home screen: ~7 requests per load
+// - Navigation between tabs: ~14 requests per cycle
+// - Pull-to-refresh and background updates
+// - Multiple users, rapid navigation, etc.
+// 1000 requests per 15 minutes = ~66 requests per minute = very generous for normal usage
+// This prevents legitimate users from hitting rate limits while still protecting against abuse
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per 15 minutes
-  message: { error: 'Too many requests. Please slow down.' },
+  max: 1000, // 1000 requests per 15 minutes (very generous to prevent user-facing errors)
+  message: { error: 'Too many requests. Please try again in a moment.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: false, // Count all requests
 });
 
 // Strict Limiter - For sensitive operations (withdrawals, transfers)

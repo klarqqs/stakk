@@ -17,8 +17,15 @@ import 'package:stakk_savings/providers/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// More tab: Virtual cards, Referrals, Transaction history, Settings, Transparency
-class MoreScreen extends StatelessWidget {
+class MoreScreen extends StatefulWidget {
   const MoreScreen({super.key});
+
+  @override
+  State<MoreScreen> createState() => _MoreScreenState();
+}
+
+class _MoreScreenState extends State<MoreScreen> {
+  bool _isLoggingOut = false;
 
   @override
   Widget build(BuildContext context) {
@@ -34,10 +41,16 @@ class MoreScreen extends StatelessWidget {
         user?.email ?? (user?.phoneNumber ?? '').replaceFirst('email:', '');
     final hasUserInfo = displayName.isNotEmpty || displayEmail.isNotEmpty;
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
+    return Stack(
+      children: [
+        Scaffold(
+          body: SafeArea(
+            bottom: false,
+            child: AbsorbPointer(
+              absorbing: _isLoggingOut,
+              child: Opacity(
+                opacity: _isLoggingOut ? 0.6 : 1.0,
+                child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           children: [
             Text(
@@ -189,16 +202,34 @@ class MoreScreen extends StatelessWidget {
                   ),
                 );
                 if (confirm != true || !context.mounted) return;
+                setState(() => _isLoggingOut = true);
                 final nav = Navigator.of(context);
-                await context.read<AuthProvider>().logout();
-                if (context.mounted) {
-                  nav.pushNamedAndRemoveUntil('/', (r) => false);
+                try {
+                  await context.read<AuthProvider>().logout();
+                  if (context.mounted) {
+                    nav.pushNamedAndRemoveUntil('/', (r) => false);
+                  }
+                } finally {
+                  if (mounted) {
+                    setState(() => _isLoggingOut = false);
+                  }
                 }
               },
             ),
           ],
+                ),
+              ),
+            ),
+          ),
         ),
-      ),
+        if (_isLoggingOut)
+          Container(
+            color: Colors.black.withOpacity(0.1),
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+      ],
     );
   }
 }

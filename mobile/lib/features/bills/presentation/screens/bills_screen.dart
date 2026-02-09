@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/api_client.dart' show ApiException, WalletBalance;
 import 'package:stakk_savings/core/constants/app_constants.dart';
@@ -23,7 +22,6 @@ class BillsScreen extends StatefulWidget {
 class _BillsScreenState extends State<BillsScreen> {
   List<BillCategoryModel> _categories = [];
   bool _loading = true;
-  bool _refreshing = false;
   String? _error;
   WalletBalance? _balance;
   final _cacheService = CacheService();
@@ -81,23 +79,31 @@ class _BillsScreenState extends State<BillsScreen> {
     }
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool forceRefresh = false}) async {
+    // Check cache validity - skip API calls if cache is fresh
+    if (!forceRefresh) {
+      final categoriesCacheValid = await _cacheService.isValid('bill_categories');
+      final balanceCacheValid = await _cacheService.isValid('balance');
+      
+      // If both caches are valid, skip API calls entirely
+      if (categoriesCacheValid && balanceCacheValid) {
+        return;
+      }
+    }
+    
     if (_categories.isEmpty || _balance == null) {
       setState(() {
         _loading = true;
         _error = null;
       });
-    } else {
-      setState(() {
-        _refreshing = true;
-      });
     }
     
     try {
       final auth = context.read<AuthProvider>();
+      // Space out requests slightly
       final results = await Future.wait([
-        auth.getBillTopCategories(),
-        auth.getBalance(),
+        Future.delayed(const Duration(milliseconds: 0), () => auth.getBillTopCategories()),
+        Future.delayed(const Duration(milliseconds: 50), () => auth.getBalance()),
       ]);
       if (mounted) {
         final categories = results[0] as List<BillCategoryModel>;
@@ -121,28 +127,47 @@ class _BillsScreenState extends State<BillsScreen> {
           _categories = categories;
           _balance = balance;
           _loading = false;
-          _refreshing = false;
         });
       }
     } on ApiException catch (e) {
       if (mounted) {
         if (e.message == 'Session expired') {
           await context.read<AuthProvider>().handleSessionExpired(context);
-        } else {
+        } else if (e.message.toLowerCase().contains('too many requests')) {
+          // Silently handle 429 - use cached data
           setState(() {
-            _error = e.message;
             _loading = false;
-            _refreshing = false;
+            _error = null; // Don't show error if we have cached data
           });
+        } else {
+          // Only show error if we don't have cached data
+          if (_categories.isEmpty && _balance == null) {
+            setState(() {
+              _error = e.message;
+              _loading = false;
+            });
+          } else {
+            setState(() {
+              _loading = false;
+              _error = null; // Keep using cached data
+            });
+          }
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _error = 'Failed to load';
-          _loading = false;
-          _refreshing = false;
-        });
+        // Only show error if we don't have cached data
+        if (_categories.isEmpty && _balance == null) {
+          setState(() {
+            _error = 'Failed to load';
+            _loading = false;
+          });
+        } else {
+          setState(() {
+            _loading = false;
+            _error = null; // Keep using cached data
+          });
+        }
       }
     }
   }
@@ -178,7 +203,7 @@ class _BillsScreenState extends State<BillsScreen> {
     return Scaffold(
       body: SafeArea(bottom: false,
         child: RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () => _load(forceRefresh: true),
           child: _loading
               ? const BillsSkeletonLoader()
               : SingleChildScrollView(
@@ -187,22 +212,15 @@ class _BillsScreenState extends State<BillsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Header with animation
                       Text(
                         'Bills',
-                        style: AppTheme.header(context: context, fontSize: 32, fontWeight: FontWeight.w800),
-                      )
-                          .animate()
-                          .fadeIn(duration: 400.ms, delay: 100.ms)
-                          .slideY(begin: -0.2, end: 0, duration: 500.ms, delay: 100.ms, curve: Curves.easeOutCubic),
-                      const SizedBox(height: 12),
+                        style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
                       Text(
                         'Pay airtime, data, DSTV, electricity with USDC',
-                        style: AppTheme.body(context: context, fontSize: 16, color: Theme.of(context).brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
-                      )
-                          .animate()
-                          .fadeIn(duration: 400.ms, delay: 200.ms)
-                          .slideY(begin: -0.1, end: 0, duration: 500.ms, delay: 200.ms, curve: Curves.easeOutCubic),
+                        style: AppTheme.body(context: context, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
+                      ),
                       // if (_balance != null) ...[
                       //   const SizedBox(height: 4),
                       //   Text(
@@ -228,15 +246,12 @@ class _BillsScreenState extends State<BillsScreen> {
                         ),
                       ],
                       if (_error == null) ...[
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 24),
                         Text(
                           'Quick Pay',
-                          style: AppTheme.title(context: context, fontSize: 20, fontWeight: FontWeight.w700),
-                        )
-                            .animate()
-                            .fadeIn(duration: 400.ms, delay: 300.ms)
-                            .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 300.ms, curve: Curves.easeOutCubic),
-                        const SizedBox(height: 20),
+                          style: AppTheme.title(context: context, fontSize: 18),
+                        ),
+                        const SizedBox(height: 12),
                         GridView.count(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
@@ -244,9 +259,7 @@ class _BillsScreenState extends State<BillsScreen> {
                           mainAxisSpacing: 16,
                           crossAxisSpacing: 16,
                           childAspectRatio: 1.15,
-                          children: _quickPayItems.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final item = entry.value;
+                          children: _quickPayItems.map((item) {
                             final cat = _findCategory(item.$3);
                             return _QuickPayCard(
                               icon: item.$2,
@@ -256,21 +269,15 @@ class _BillsScreenState extends State<BillsScreen> {
                                 item.$1,
                                 preSelectProvider: item.$1 == 'DSTV' ? 'DSTV' : null,
                               ),
-                            )
-                                .animate()
-                                .fadeIn(duration: 400.ms, delay: (400 + index * 100).ms)
-                                .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.0, 1.0), duration: 500.ms, delay: (400 + index * 100).ms, curve: Curves.easeOutBack);
+                            );
                           }).toList(),
                         ),
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 32),
                         Text(
-                          'Airtime Quick Amounts',
-                          style: AppTheme.title(context: context, fontSize: 20, fontWeight: FontWeight.w700),
-                        )
-                            .animate()
-                            .fadeIn(duration: 400.ms, delay: 600.ms)
-                            .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 600.ms, curve: Curves.easeOutCubic),
-                        const SizedBox(height: 16),
+                          'Airtime quick amounts',
+                          style: AppTheme.title(context: context, fontSize: 18),
+                        ),
+                        const SizedBox(height: 12),
                         Row(
                           children: [
                             for (var i = 0; i < _presets.length; i++) ...[
@@ -282,23 +289,17 @@ class _BillsScreenState extends State<BillsScreen> {
                                     final cat = _findCategory('AIRTIME');
                                     if (cat != null) _navigateToCategory(cat, 'Airtime', presetAmount: _presets[i].toDouble());
                                   },
-                                )
-                                    .animate()
-                                    .fadeIn(duration: 400.ms, delay: (700 + i * 80).ms)
-                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: (700 + i * 80).ms, curve: Curves.easeOut),
+                                ),
                               ),
                             ],
                           ],
                         ),
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 32),
                         Text(
                           'All Categories',
-                          style: AppTheme.title(context: context, fontSize: 20, fontWeight: FontWeight.w700),
-                        )
-                            .animate()
-                            .fadeIn(duration: 400.ms, delay: 900.ms)
-                            .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 900.ms, curve: Curves.easeOutCubic),
-                        const SizedBox(height: 16),
+                          style: AppTheme.title(context: context, fontSize: 18),
+                        ),
+                        const SizedBox(height: 12),
                         if (_categories.isEmpty)
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 48),
@@ -306,23 +307,14 @@ class _BillsScreenState extends State<BillsScreen> {
                               'No bill categories available',
                               textAlign: TextAlign.center,
                               style: AppTheme.body(context: context, fontSize: 15, color: Theme.of(context).brightness == Brightness.dark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight),
-                            )
-                                .animate()
-                                .fadeIn(duration: 400.ms, delay: 1000.ms),
+                            ),
                           )
                         else
-                          ..._categories.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final c = entry.value;
-                            return _CategoryTile(
-                              category: c,
-                              icon: _iconForCode(c.code),
-                              onTap: () => _navigateToCategory(c, c.name),
-                            )
-                                .animate()
-                                .fadeIn(duration: 400.ms, delay: (1000 + index * 50).ms)
-                                .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: (1000 + index * 50).ms, curve: Curves.easeOutCubic);
-                          }),
+                          ..._categories.map((c) => _CategoryTile(
+                            category: c,
+                            icon: _iconForCode(c.code),
+                            onTap: () => _navigateToCategory(c, c.name),
+                          )),
                       ],
                     ],
                   ),
@@ -353,7 +345,6 @@ class _QuickPayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = isDark ? AppColors.primaryDark : AppColors.primary;
-    final primaryGradientEnd = isDark ? AppColors.primaryDark : AppColors.primaryGradientEnd;
     
     return Material(
       color: Colors.transparent,
@@ -368,67 +359,24 @@ class _QuickPayCard extends StatelessWidget {
                 : AppColors.surfaceLight,
             borderRadius: BorderRadius.circular(AppRadius.xl),
             border: Border.all(
-              color: primary.withValues(alpha: 0.2),
-              width: 1.5,
+              color: isDark 
+                  ? AppColors.borderDark.withValues(alpha: 0.3) 
+                  : AppColors.borderLight.withValues(alpha: 0.4),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: primary.withValues(alpha: isDark ? 0.12 : 0.06),
-                blurRadius: 24,
-                spreadRadius: 0,
-                offset: const Offset(0, 6),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Enhanced icon container with premium styling
               Container(
-                width: 56,
-                height: 56,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
+                  color: primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      primary.withValues(alpha: 0.2),
-                      primaryGradientEnd.withValues(alpha: 0.1),
-                    ],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: primary.withValues(alpha: 0.2),
-                      blurRadius: 16,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Outer ring
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: primary.withValues(alpha: 0.3), width: 2),
-                      ),
-                    ),
-                    // Icon
-                    Icon(icon, size: 28, color: primary),
-                  ],
-                ),
+                child: Icon(icon, size: 24, color: primary),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Text(
                 label,
                 style: AppTheme.body(
@@ -494,7 +442,7 @@ class _CategoryTile extends StatelessWidget {
     final primary = isDark ? AppColors.primaryDark : AppColors.primary;
     
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -509,53 +457,18 @@ class _CategoryTile extends StatelessWidget {
                 color: isDark 
                     ? AppColors.borderDark.withValues(alpha: 0.3) 
                     : AppColors.borderLight.withValues(alpha: 0.4),
-                width: 1.5,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-                  blurRadius: 16,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: Row(
               children: [
-                // Enhanced gradient accent bar
                 Container(
-                  width: 5,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        primary,
-                        primary.withValues(alpha: 0.7),
-                        primary.withValues(alpha: 0.4),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                    borderRadius: BorderRadius.circular(2.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: primary.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 18),
-                // Icon with background
-                Container(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
-                  child: Icon(icon, color: primary, size: 22),
+                  child: Icon(icon, color: primary, size: 20),
                 ),
                 const SizedBox(width: 16),
                 Expanded(

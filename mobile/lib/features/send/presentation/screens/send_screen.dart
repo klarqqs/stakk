@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/core/components/buttons/primary_button.dart';
-import 'package:stakk_savings/core/components/error_banner.dart';
+import 'package:stakk_savings/core/components/error_dialog.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
@@ -24,8 +24,6 @@ class _SendScreenState extends State<SendScreen> {
   WalletBalance? _balance;
   List<P2pTransfer> _recentTransfers = [];
   bool _loading = true;
-  bool _refreshing = false;
-  String? _error;
   final _cacheService = CacheService();
 
   @override
@@ -73,23 +71,30 @@ class _SendScreenState extends State<SendScreen> {
     }
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool forceRefresh = false}) async {
+    // Check cache validity - skip API calls if cache is fresh
+    if (!forceRefresh) {
+      final balanceCacheValid = await _cacheService.isValid('balance');
+      final p2pCacheValid = await _cacheService.isValid('p2p_history');
+      
+      // If both caches are valid, skip API calls entirely
+      if (balanceCacheValid && p2pCacheValid) {
+        return;
+      }
+    }
+    
     if (_balance == null) {
       setState(() {
         _loading = true;
-        _error = null;
-      });
-    } else {
-      setState(() {
-        _refreshing = true;
       });
     }
     
     try {
       final auth = context.read<AuthProvider>();
+      // Space out requests slightly
       final results = await Future.wait([
-        auth.getBalance(),
-        auth.p2pGetHistory().catchError((_) => <P2pTransfer>[]),
+        Future.delayed(const Duration(milliseconds: 0), () => auth.getBalance()),
+        Future.delayed(const Duration(milliseconds: 50), () => auth.p2pGetHistory().catchError((_) => <P2pTransfer>[])),
       ]);
       if (mounted) {
         final balance = results[0] as WalletBalance;
@@ -121,26 +126,41 @@ class _SendScreenState extends State<SendScreen> {
           _balance = balance;
           _recentTransfers = recentTransfers;
           _loading = false;
-          _refreshing = false;
         });
       }
     } on ApiException catch (e) {
       if (mounted) {
         setState(() {
-          _error = e.message;
           _loading = false;
-          _refreshing = false;
         });
+        // Silently handle 429 errors - user already has cached data
+        if (!e.message.toLowerCase().contains('too many requests')) {
+          // Only show error dialog if we don't have cached data
+          if (_balance == null && _recentTransfers.isEmpty) {
+            _showErrorDialog(context, e.message);
+          }
+          // Otherwise silently fail and keep using cached data
+        }
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _error = 'Failed to load';
           _loading = false;
-          _refreshing = false;
         });
+        // Only show error if we don't have cached data
+        if (_balance == null && _recentTransfers.isEmpty) {
+          _showErrorDialog(context, 'Failed to load');
+        }
       }
     }
+  }
+
+  void _showErrorDialog(BuildContext context, String message) {
+    ErrorDialog.show(
+      context,
+      message: message,
+      onRetry: _load,
+    );
   }
 
   void _navigateToP2PSend() {
@@ -180,7 +200,7 @@ class _SendScreenState extends State<SendScreen> {
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () => _load(forceRefresh: true),
           child: _loading
               ? const SendSkeletonLoader()
               : SingleChildScrollView(
@@ -203,10 +223,6 @@ class _SendScreenState extends State<SendScreen> {
                         style: AppTheme.caption(context: context, fontSize: 14),
                       ),
                       const SizedBox(height: 24),
-                      if (_error != null) ...[
-                        ErrorBanner(message: _error!, onRetry: _load),
-                        const SizedBox(height: 24),
-                      ],
                       _QuickActionGrid(
                         onP2P: _navigateToP2PSend,
                         onStellar: _showSendToStellar,

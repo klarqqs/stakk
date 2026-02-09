@@ -132,6 +132,12 @@ class ErrorMessageFormatter {
       return 'Your session has expired. Please sign in again.';
     }
 
+    if (lowerMessage.contains('too many requests') ||
+        lowerMessage.contains('rate limit') ||
+        lowerMessage.contains('429')) {
+      return 'Too many requests. Please try again in a moment.';
+    }
+
     // Use the general formatter for technical errors
     return format(message);
   }

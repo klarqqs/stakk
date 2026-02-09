@@ -57,7 +57,7 @@ class CacheService {
     }
   }
   
-  /// Check if cached data is still valid
+  /// Check if cached data is still valid (private)
   Future<bool> _isValid(String key) async {
     final prefs = await SharedPreferences.getInstance();
     final timestampKey = _timestampPrefix + key;
@@ -68,6 +68,38 @@ class CacheService {
     final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final ttl = _getTtl(key);
     return (now - timestamp) < ttl;
+  }
+  
+  /// Check if cache is valid (public method)
+  Future<bool> isValid(String key) async {
+    return await _isValid(key);
+  }
+  
+  /// Check if cached data exists (even if expired)
+  Future<bool> exists(String key) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cacheKey = _prefix + key;
+      return prefs.containsKey(cacheKey);
+    } catch (e) {
+      return false;
+    }
+  }
+  
+  /// Get cache age in seconds (how old the cache is)
+  Future<int?> getCacheAge(String key) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final timestampKey = _timestampPrefix + key;
+      final timestamp = prefs.getInt(timestampKey);
+      
+      if (timestamp == null) return null;
+      
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      return now - timestamp;
+    } catch (e) {
+      return null;
+    }
   }
   
   /// Save data to cache

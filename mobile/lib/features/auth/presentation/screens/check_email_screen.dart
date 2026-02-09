@@ -98,50 +98,50 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
           children: [
             SafeArea(
               bottom: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
                 child: Opacity(
                   opacity: _isLoading ? 0.6 : 1.0,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Enter your email',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Enter your email',
                         style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        "We'll check if you have an account and guide you to sign in or sign up.",
-                        style: AppTheme.body(fontSize: 15, color: const Color(0xFF6B7280)),
-                      ),
-                      const SizedBox(height: 32),
-                      TextField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        autocorrect: false,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "We'll check if you have an account and guide you to sign in or sign up.",
+                style: AppTheme.body(fontSize: 15, color: const Color(0xFF6B7280)),
+              ),
+              const SizedBox(height: 32),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                autocorrect: false,
                         enabled: !_isLoading,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          hintText: 'you@example.com',
-                        ),
-                        onChanged: (_) => setState(() => _error = null),
-                      ),
-                      if (_error != null) ...[
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF2F2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFFECACA)),
-                          ),
-                          child: Text(
-                            _error!,
-                            style: AppTheme.body(fontSize: 14, color: const Color(0xFFDC2626)),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 24),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'you@example.com',
+                ),
+                onChanged: (_) => setState(() => _error = null),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: Text(
+                    _error!,
+                    style: AppTheme.body(fontSize: 14, color: const Color(0xFFDC2626)),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 24),
                       SizedBox(
                         width: double.infinity,
                         child: PrimaryButton(
@@ -156,7 +156,7 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
                           Expanded(child: Divider(color: Theme.of(context).brightness == Brightness.dark ? AppColors.borderDark : AppColors.borderLight)),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text(
+                child: Text(
                               'or',
                               style: AppTheme.caption(context: context, fontSize: 13),
                             ),
@@ -211,7 +211,7 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
       if (idToken == null) {
         if (mounted) {
           setState(() => _isGoogleLoading = false);
-          TopSnackbar.error(context, 'Failed to get Google token');
+          TopSnackbar.error(context, 'Unable to complete sign in. Please try again.');
         }
         return;
       }
@@ -240,7 +240,7 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
           setState(() => _isAppleLoading = false);
           TopSnackbar.error(
             context,
-            'Sign in with Apple is not available. Please sign in to iCloud on your device.',
+            'Sign in with Apple is not available. Please use email to continue.',
           );
         }
         return;
@@ -258,7 +258,7 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
       if (credential.identityToken == null) {
         if (mounted) {
           setState(() => _isAppleLoading = false);
-          TopSnackbar.error(context, 'Failed to get Apple identity token');
+          TopSnackbar.error(context, 'Unable to complete sign in. Please try again.');
         }
         return;
       }
@@ -280,25 +280,22 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
         return;
       }
 
-      String errorMessage = 'Apple sign-in failed';
+      String errorMessage = 'Unable to sign in with Apple';
       switch (e.code) {
         case AuthorizationErrorCode.failed:
-          errorMessage = 'Apple sign-in failed. Please try again.';
+          errorMessage = 'Sign in with Apple failed. Please try again.';
           break;
         case AuthorizationErrorCode.invalidResponse:
-          errorMessage = 'Invalid response from Apple. Please try again.';
+          errorMessage = 'Unable to complete sign in. Please try again.';
           break;
         case AuthorizationErrorCode.notHandled:
-          errorMessage = 'Apple sign-in not configured. Please contact support.';
+          errorMessage = 'Sign in with Apple is not available. Please use email or contact support.';
           break;
         case AuthorizationErrorCode.unknown:
-          errorMessage = 'Apple sign-in error. Please ensure:\n'
-              '• You are signed in to iCloud\n'
-              '• Sign in with Apple is enabled in Settings\n'
-              '• You are using a physical device (not simulator)';
+          errorMessage = 'Unable to sign in with Apple. Please try again or use email to continue.';
           break;
         default:
-          errorMessage = 'Apple sign-in error: ${e.code}';
+          errorMessage = 'Unable to sign in with Apple. Please try again.';
       }
       
       if (mounted) {
@@ -477,7 +474,7 @@ class _AppleSignInButton extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
+        ),
       ),
     );
   }

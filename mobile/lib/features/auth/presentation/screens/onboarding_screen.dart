@@ -76,7 +76,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _handleGoogleSignIn() async {
     if (_isGoogleLoading || _isAppleLoading) return;
-    
+
     _autoSwipeTimer?.cancel();
     setState(() => _isGoogleLoading = true);
     try {
@@ -92,7 +92,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (idToken == null) {
         if (mounted) {
           setState(() => _isGoogleLoading = false);
-          TopSnackbar.error(context, 'Failed to get Google token');
+          TopSnackbar.error(
+            context,
+            'Unable to complete sign in. Please try again.',
+          );
         }
         return;
       }
@@ -111,7 +114,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _handleAppleSignIn() async {
     if (_isAppleLoading || _isGoogleLoading) return;
-    
+
     _autoSwipeTimer?.cancel();
     setState(() => _isAppleLoading = true);
     try {
@@ -122,7 +125,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         setState(() => _isAppleLoading = false);
         TopSnackbar.error(
           context,
-          'Sign in with Apple is not available. Please sign in to iCloud on your device.',
+          'Sign in with Apple is not available. Please use email to continue.',
         );
         return;
       }
@@ -139,7 +142,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (credential.identityToken == null) {
         if (mounted) {
           setState(() => _isAppleLoading = false);
-          TopSnackbar.error(context, 'Failed to get Apple identity token');
+          TopSnackbar.error(
+            context,
+            'Unable to complete sign in. Please try again.',
+          );
         }
         return;
       }
@@ -161,27 +167,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         return;
       }
 
-      String errorMessage = 'Apple sign-in failed';
+      String errorMessage = 'Unable to sign in with Apple';
       switch (e.code) {
         case AuthorizationErrorCode.failed:
-          errorMessage = 'Apple sign-in failed. Please try again.';
+          errorMessage = 'Sign in with Apple failed. Please try again.';
           break;
         case AuthorizationErrorCode.invalidResponse:
-          errorMessage = 'Invalid response from Apple. Please try again.';
+          errorMessage = 'Unable to complete sign in. Please try again.';
           break;
         case AuthorizationErrorCode.notHandled:
           errorMessage =
-              'Apple sign-in not configured. Please contact support.';
+              'Sign in with Apple is not available. Please use email or contact support.';
           break;
         case AuthorizationErrorCode.unknown:
           errorMessage =
-              'Apple sign-in error. Please ensure:\n'
-              '• You are signed in to iCloud\n'
-              '• Sign in with Apple is enabled in Settings\n'
-              '• You are using a physical device (not simulator)';
+              'Unable to sign in with Apple. Please try again or use email to continue.';
           break;
         default:
-          errorMessage = 'Apple sign-in error: ${e.code}';
+          errorMessage = 'Unable to sign in with Apple. Please try again.';
       }
 
       if (mounted) {
@@ -203,9 +206,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final passcode = await storage.read(key: StorageKeys.passcode);
       if (!mounted) return;
       if (passcode != null && passcode.isNotEmpty) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (r) => false);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil('/dashboard', (r) => false);
       } else {
-        Navigator.of(context).pushReplacementNamed('/auth/create-passcode', arguments: true);
+        Navigator.of(
+          context,
+        ).pushReplacementNamed('/auth/create-passcode', arguments: true);
       }
     } catch (e) {
       if (mounted) {
@@ -261,7 +268,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           controller: _pageController,
                           onPageChanged: _onPageChanged,
                           itemCount: _totalSteps,
-                          physics: _isLoading ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
+                          physics: _isLoading
+                              ? const NeverScrollableScrollPhysics()
+                              : const BouncingScrollPhysics(),
                           itemBuilder: (_, i) => OnboardingPageWidget(
                             step: onboardingSteps[i],
                             pageIndex: i,
@@ -275,7 +284,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             OnboardingPageIndicators(
                               page: _page,
                               total: _totalSteps,
-                            ).animate().fadeIn(duration: 400.ms, delay: 300.ms),
+                            ),
                             const SizedBox(height: 40),
                             GlassCard(
                                   padding: const EdgeInsets.symmetric(
@@ -291,7 +300,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                             isLoading: _isGoogleLoading,
                                           )
                                           .animate()
-                                          .fadeIn(duration: 400.ms, delay: 400.ms)
+                                          .fadeIn(
+                                            duration: 400.ms,
+                                            delay: 400.ms,
+                                          )
                                           .slideY(
                                             begin: 0.3,
                                             end: 0,
@@ -306,7 +318,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                             isLoading: _isAppleLoading,
                                           )
                                           .animate()
-                                          .fadeIn(duration: 400.ms, delay: 500.ms)
+                                          .fadeIn(
+                                            duration: 400.ms,
+                                            delay: 500.ms,
+                                          )
                                           .slideY(
                                             begin: 0.3,
                                             end: 0,
@@ -320,12 +335,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                           Expanded(
                                             child: Divider(
                                               color: isDark
-                                                  ? AppColors.borderDark.withValues(
-                                                      alpha: 0.5,
-                                                    )
-                                                  : AppColors.borderLight.withValues(
-                                                      alpha: 0.5,
-                                                    ),
+                                                  ? AppColors.borderDark
+                                                        .withValues(alpha: 0.5)
+                                                  : AppColors.borderLight
+                                                        .withValues(alpha: 0.5),
                                               thickness: 1,
                                             ),
                                           ),
@@ -340,7 +353,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                                 fontSize: 14,
                                                 color: isDark
                                                     ? AppColors.textTertiaryDark
-                                                    : AppColors.textTertiaryLight,
+                                                    : AppColors
+                                                          .textTertiaryLight,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                             ),
@@ -348,12 +362,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                           Expanded(
                                             child: Divider(
                                               color: isDark
-                                                  ? AppColors.borderDark.withValues(
-                                                      alpha: 0.5,
-                                                    )
-                                                  : AppColors.borderLight.withValues(
-                                                      alpha: 0.5,
-                                                    ),
+                                                  ? AppColors.borderDark
+                                                        .withValues(alpha: 0.5)
+                                                  : AppColors.borderLight
+                                                        .withValues(alpha: 0.5),
                                               thickness: 1,
                                             ),
                                           ),
@@ -367,11 +379,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                             width: double.infinity,
                                             child: PrimaryButton(
                                               label: 'Continue with Email',
-                                              onPressed: _isLoading ? null : _handleEmailSignIn,
+                                              onPressed: _isLoading
+                                                  ? null
+                                                  : _handleEmailSignIn,
                                             ),
                                           )
                                           .animate()
-                                          .fadeIn(duration: 400.ms, delay: 700.ms)
+                                          .fadeIn(
+                                            duration: 400.ms,
+                                            delay: 700.ms,
+                                          )
                                           .slideY(
                                             begin: 0.3,
                                             end: 0,

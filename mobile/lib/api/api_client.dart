@@ -72,50 +72,88 @@ class ApiClient {
   bool _isAuthError(int? code) => code == 401 || code == 403;
 
   Future<http.Response> _requestWithRefresh(
-    Future<http.Response> Function() fn,
-  ) async {
+    Future<http.Response> Function() fn, {
+    bool retryOn429 = true,
+    int maxRetries = 3,
+  }) async {
     // Check connectivity before making request
     final isOnline = await OfflineHandler().checkConnectivity();
     if (!isOnline) {
       throw ApiException(ErrorMessageFormatter.format('No internet connection'));
     }
 
-    try {
-      var res = await fn();
-      if (_isAuthError(res.statusCode)) {
-        final newAccess = await _tryRefresh();
-        if (newAccess != null) {
-          res = await fn();
+    int retryCount = 0;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        var res = await fn();
+        
+        // Handle 429 rate limit with silent retry
+        if (res.statusCode == 429 && retryOn429 && retryCount < maxRetries) {
+          retryCount++;
+          // Exponential backoff: 1s, 2s, 4s
+          final delayMs = 1000 * (1 << (retryCount - 1));
+          await Future.delayed(Duration(milliseconds: delayMs));
+          continue; // Retry the request
         }
+        
+        if (_isAuthError(res.statusCode)) {
+          final newAccess = await _tryRefresh();
+          if (newAccess != null) {
+            res = await fn();
+          }
+        }
+        return res;
+      } catch (e) {
+        // If it's a 429 and we can retry, do so silently
+        if (e is ApiException && e.message.toLowerCase().contains('too many requests') && retryOn429 && retryCount < maxRetries) {
+          retryCount++;
+          final delayMs = 1000 * (1 << (retryCount - 1));
+          await Future.delayed(Duration(milliseconds: delayMs));
+          continue;
+        }
+        
+        // Track network errors (but not 429 retries)
+        if (retryCount == maxRetries) {
+          ErrorTrackingService().captureError(
+            e,
+            context: {'endpoint': 'api_request', 'retries': retryCount},
+          );
+        }
+        
+        // Provide user-friendly error message
+        if (e is ApiException) {
+          rethrow;
+        }
+        throw ApiException(ErrorMessageFormatter.format(e));
       }
-      return res;
-    } catch (e) {
-      // Track network errors
-      ErrorTrackingService().captureError(
-        e,
-        context: {'endpoint': 'api_request'},
-      );
-      
-      // Provide user-friendly error message
-      if (e is ApiException) {
-        rethrow;
-      }
-      throw ApiException(ErrorMessageFormatter.format(e));
     }
+    
+    // Should never reach here, but just in case
+    throw ApiException('Request failed after retries');
   }
 
   Future<WalletBalance> getBalance() async {
     final res = await _requestWithRefresh(() async => http.get(
-          Uri.parse('${Env.apiBaseUrl}/wallet/balance'),
-          headers: await _headers(withAuth: true),
+      Uri.parse('${Env.apiBaseUrl}/wallet/balance'),
+      headers: await _headers(withAuth: true),
         ));
 
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       _handleSessionExpired();
     }
+    if (res.statusCode == 429) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Too many requests. Please try again.');
+    }
     if (res.statusCode != 200) {
-      throw ApiException('Failed to fetch balance');
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg != null 
+          ? ErrorMessageFormatter.formatApiException(errorMsg)
+          : 'Failed to fetch balance');
     }
     return WalletBalance.fromJson(
       jsonDecode(res.body) as Map<String, dynamic>,
@@ -124,16 +162,25 @@ class ApiClient {
 
   Future<TransactionsResponse> getTransactions() async {
     final res = await _requestWithRefresh(() async => http.get(
-          Uri.parse('${Env.apiBaseUrl}/wallet/transactions'),
-          headers: await _headers(withAuth: true),
+      Uri.parse('${Env.apiBaseUrl}/wallet/transactions'),
+      headers: await _headers(withAuth: true),
         ));
 
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
       _handleSessionExpired();
     }
+    if (res.statusCode == 429) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Too many requests. Please try again.');
+    }
     if (res.statusCode != 200) {
-      throw ApiException('Failed to fetch transactions');
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg != null 
+          ? ErrorMessageFormatter.formatApiException(errorMsg)
+          : 'Failed to fetch transactions');
     }
     return TransactionsResponse.fromJson(
       jsonDecode(res.body) as Map<String, dynamic>,
@@ -273,9 +320,17 @@ class ApiClient {
       await _clearTokens();
       _handleSessionExpired();
     }
+    if (res.statusCode == 429) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Too many requests. Please try again.');
+    }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
-      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch categories');
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg != null 
+          ? ErrorMessageFormatter.formatApiException(errorMsg)
+          : 'Failed to fetch categories');
     }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final list = body['categories'] as List<dynamic>? ?? [];
@@ -292,9 +347,17 @@ class ApiClient {
       await _clearTokens();
       _handleSessionExpired();
     }
+    if (res.statusCode == 429) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Too many requests. Please try again.');
+    }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
-      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch providers');
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg != null 
+          ? ErrorMessageFormatter.formatApiException(errorMsg)
+          : 'Failed to fetch providers');
     }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final list = body['providers'] as List<dynamic>? ?? [];
@@ -330,9 +393,17 @@ class ApiClient {
       await _clearTokens();
       _handleSessionExpired();
     }
+    if (res.statusCode == 429) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Too many requests. Please try again.');
+    }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
-      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch bill categories');
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg != null 
+          ? ErrorMessageFormatter.formatApiException(errorMsg)
+          : 'Failed to fetch bill categories');
     }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final list = body['categories'] as List<dynamic>? ?? [];
@@ -533,9 +604,17 @@ class ApiClient {
       await _clearTokens();
       _handleSessionExpired();
     }
+    if (res.statusCode == 429) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Too many requests. Please try again.');
+    }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
-      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch history');
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg != null 
+          ? ErrorMessageFormatter.formatApiException(errorMsg)
+          : 'Failed to fetch history');
     }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final list = body['transfers'] as List<dynamic>? ?? [];
@@ -574,7 +653,18 @@ class ApiClient {
       await _clearTokens();
       _handleSessionExpired();
     }
-    if (res.statusCode != 200) throw ApiException('Failed to fetch goals');
+    if (res.statusCode == 429) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Too many requests. Please try again.');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg != null 
+          ? ErrorMessageFormatter.formatApiException(errorMsg)
+          : 'Failed to fetch goals');
+    }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final list = body['goals'] as List<dynamic>? ?? [];
     return list.map((e) => SavingsGoal.fromJson(e as Map<String, dynamic>)).toList();
@@ -672,7 +762,18 @@ class ApiClient {
       await _clearTokens();
       _handleSessionExpired();
     }
-    if (res.statusCode != 200) throw ApiException('Failed to fetch locked savings');
+    if (res.statusCode == 429) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Too many requests. Please try again.');
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg != null 
+          ? ErrorMessageFormatter.formatApiException(errorMsg)
+          : 'Failed to fetch locked savings');
+    }
     final body = jsonDecode(res.body) as Map<String, dynamic>;
     final list = body['locks'] as List<dynamic>? ?? [];
     return list.map((e) => LockedSaving.fromJson(e as Map<String, dynamic>)).toList();

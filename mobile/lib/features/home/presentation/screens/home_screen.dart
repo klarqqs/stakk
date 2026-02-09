@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:stakk_savings/core/components/app_card.dart';
-import 'package:stakk_savings/core/components/error_banner.dart';
+import 'package:stakk_savings/core/components/error_dialog.dart';
 import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:stakk_savings/core/components/slide_to_action/slide_to_action.dart';
 import 'package:stakk_savings/core/constants/app_constants.dart';
@@ -33,8 +32,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
-  bool _refreshing = false;
-  String? _error;
   WalletBalance? _balance;
   List<Transaction> _transactions = [];
   List<P2pTransfer> _p2pTransfers = [];
@@ -112,29 +109,46 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   /// Load fresh data from API
-  Future<void> _load() async {
+  /// Only makes API calls if cache is expired or missing
+  Future<void> _load({bool forceRefresh = false}) async {
     if (!mounted) return;
+    
+    // Check cache validity - skip API calls if cache is fresh
+    if (!forceRefresh) {
+      final balanceCacheValid = await _cacheService.isValid('balance');
+      final transactionsCacheValid = await _cacheService.isValid('transactions');
+      final p2pCacheValid = await _cacheService.isValid('p2p_history');
+      final notificationsCacheValid = await _cacheService.isValid('notifications');
+      final blendEarningsCacheValid = await _cacheService.isValid('blend_earnings');
+      final blendApyCacheValid = await _cacheService.isValid('blend_apy');
+      final goalsCacheValid = await _cacheService.isValid('goals');
+      
+      // If all caches are valid, skip API calls entirely
+      if (balanceCacheValid && transactionsCacheValid && p2pCacheValid && 
+          notificationsCacheValid && blendEarningsCacheValid && 
+          blendApyCacheValid && goalsCacheValid) {
+        // All data is cached and fresh - no API calls needed
+        return;
+      }
+    }
     
     // Only show loading spinner if we don't have cached data
     if (_balance == null) {
       setState(() {
         _loading = true;
-        _error = null;
-      });
-    } else {
-      setState(() {
-        _refreshing = true;
       });
     }
 
     try {
       final auth = context.read<AuthProvider>();
+      
+      // Space out requests slightly to avoid bursts
       final results = await Future.wait([
-        auth.getBalance(),
-        auth.getTransactions(),
-        auth.p2pGetHistory().catchError((_) => <P2pTransfer>[]),
-        auth.notificationsGetUnreadCount().catchError((_) => 0),
-        auth.getBlendEarnings().catchError(
+        Future.delayed(const Duration(milliseconds: 0), () => auth.getBalance()),
+        Future.delayed(const Duration(milliseconds: 50), () => auth.getTransactions()),
+        Future.delayed(const Duration(milliseconds: 100), () => auth.p2pGetHistory().catchError((_) => <P2pTransfer>[])),
+        Future.delayed(const Duration(milliseconds: 150), () => auth.notificationsGetUnreadCount().catchError((_) => 0)),
+        Future.delayed(const Duration(milliseconds: 200), () => auth.getBlendEarnings().catchError(
           (_) => BlendEarningsResponse(
             supplied: 0,
             earned: 0,
@@ -142,11 +156,11 @@ class _HomeScreenState extends State<HomeScreen> {
             totalValue: 0,
             isEarning: false,
           ),
-        ),
-        auth.getBlendApy().catchError(
+        )),
+        Future.delayed(const Duration(milliseconds: 250), () => auth.getBlendApy().catchError(
           (_) => BlendApyResponse(apy: '5.5', raw: 5.5),
-        ),
-        auth.goalsGetAll().catchError((_) => <SavingsGoal>[]),
+        )),
+        Future.delayed(const Duration(milliseconds: 300), () => auth.goalsGetAll().catchError((_) => <SavingsGoal>[])),
       ]);
       
       if (!mounted) return;
@@ -177,28 +191,48 @@ class _HomeScreenState extends State<HomeScreen> {
         _unreadNotifications = unreadNotifications;
         _blendEarnings = blendEarnings;
         _blendApy = blendApy;
-        _goals = goals;
-        _loading = false;
-        _refreshing = false;
-      });
+          _goals = goals;
+          _loading = false;
+        });
     } on ApiException catch (e) {
       if (!mounted) return;
       if (e.message == 'Session expired') {
         await context.read<AuthProvider>().handleSessionExpired(context);
-      } else {
+      } else if (e.message.toLowerCase().contains('too many requests')) {
+        // Silently handle 429 errors - user already has cached data displayed
+        // Don't show error dialog, just keep using cached data
         setState(() {
-          _error = e.message;
           _loading = false;
-          _refreshing = false;
         });
+        // Silently fail - cached data is already displayed
+      } else {
+        // Only show error dialog for non-429 errors if we don't have cached data
+        if (_balance == null) {
+          setState(() {
+            _loading = false;
+          });
+          _showErrorDialog(context, e.message);
+        } else {
+          // We have cached data, silently fail and keep using it
+          setState(() {
+            _loading = false;
+          });
+        }
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = 'Failed to load data';
-        _loading = false;
-        _refreshing = false;
-      });
+      // Only show error if we don't have cached data
+      if (_balance == null) {
+        setState(() {
+          _loading = false;
+        });
+        _showErrorDialog(context, 'Failed to load data');
+      } else {
+        // Silently fail - cached data is already displayed
+        setState(() {
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -315,13 +349,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showErrorDialog(BuildContext context, String message) {
+    ErrorDialog.show(
+      context,
+      message: message,
+      onRetry: _load,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () => _load(forceRefresh: true),
           child: _loading
               ? const HomeSkeletonLoader()
               : SingleChildScrollView(
@@ -342,10 +384,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontSize: 32,
                                 fontWeight: FontWeight.w800,
                               ),
-                            )
-                                .animate()
-                                .fadeIn(duration: 400.ms, delay: 100.ms)
-                                .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 100.ms, curve: Curves.easeOutCubic),
+                            ),
                             InkWell(
                               splashColor: Colors.transparent,
                               highlightColor: Colors.transparent,
@@ -361,28 +400,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   builder: (_) => const NotificationsScreen(),
                                 ),
                               ).then((_) => _load()),
-                            )
-                                .animate()
-                                .fadeIn(duration: 400.ms, delay: 150.ms)
-                                .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 150.ms, curve: Curves.easeOutBack),
+                            ),
                           ],
                         ),
                       ),
                       const SizedBox(height: 40),
-                      if (_error != null) ...[
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: ErrorBanner(message: _error!, onRetry: _load),
-                        ),
-                        const SizedBox(height: 24),
-                      ],
                       if (_balance != null) ...[
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: _BalanceCard(balance: _balance!)
-                              .animate()
-                              .fadeIn(duration: 400.ms, delay: 200.ms)
-                              .slideY(begin: 0.1, end: 0, duration: 500.ms, delay: 200.ms, curve: Curves.easeOutCubic),
+                          child: _BalanceCard(balance: _balance!),
                         ),
                         const SizedBox(height: 20),
                         Padding(
@@ -392,10 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             apy: _blendApy,
                             balance: _balance!.usdc,
                             onRefresh: _load,
-                          )
-                              .animate()
-                              .fadeIn(duration: 400.ms, delay: 300.ms)
-                              .slideY(begin: 0.1, end: 0, duration: 500.ms, delay: 300.ms, curve: Curves.easeOutCubic),
+                          ),
                         ),
                         const SizedBox(height: 20),
                         Padding(
@@ -407,10 +430,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   icon: Icons.add_circle_outline,
                                   label: 'Fund',
                                   onPressed: () => _showFundSheet(context),
-                                )
-                                    .animate()
-                                    .fadeIn(duration: 400.ms, delay: 400.ms)
-                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 400.ms, curve: Curves.easeOut),
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -418,10 +438,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   icon: Icons.send_outlined,
                                   label: 'Send',
                                   onPressed: () => _showSendSheet(context),
-                                )
-                                    .animate()
-                                    .fadeIn(duration: 400.ms, delay: 450.ms)
-                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 450.ms, curve: Curves.easeOut),
+                                ),
                               ),
                             ],
                           ),
@@ -441,10 +458,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       builder: (_) => const GoalsScreen(),
                                     ),
                                   ),
-                                )
-                                    .animate()
-                                    .fadeIn(duration: 400.ms, delay: 500.ms)
-                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 500.ms, curve: Curves.easeOut),
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -459,10 +473,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                   ),
-                                )
-                                    .animate()
-                                    .fadeIn(duration: 400.ms, delay: 550.ms)
-                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 550.ms, curve: Curves.easeOut),
+                                ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -475,10 +486,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       builder: (_) => const ReferralsScreen(),
                                     ),
                                   ),
-                                )
-                                    .animate()
-                                    .fadeIn(duration: 400.ms, delay: 600.ms)
-                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 600.ms, curve: Curves.easeOut),
+                                ),
                               ),
                             ],
                           ),
@@ -497,10 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     fontSize: 20,
                                     fontWeight: FontWeight.w700,
                                   ),
-                                )
-                                    .animate()
-                                    .fadeIn(duration: 400.ms, delay: 700.ms)
-                                    .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 700.ms, curve: Curves.easeOutCubic),
+                                ),
                                 InkWell(
                                   splashColor: Colors.transparent,
                                   highlightColor: Colors.transparent,
@@ -521,9 +526,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           : AppColors.primary,
                                     ),
                                   ),
-                                )
-                                    .animate()
-                                    .fadeIn(duration: 400.ms, delay: 750.ms),
+                                ),
                               ],
                             ),
                           ),
@@ -572,10 +575,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         fontSize: 20,
                                         fontWeight: FontWeight.w700,
                                       ),
-                                    )
-                                        .animate()
-                                        .fadeIn(duration: 400.ms, delay: 800.ms)
-                                        .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 800.ms, curve: Curves.easeOutCubic),
+                                    ),
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.of(context).push(
@@ -595,9 +595,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               : AppColors.primary,
                                         ),
                                       ),
-                                    )
-                                        .animate()
-                                        .fadeIn(duration: 400.ms, delay: 850.ms),
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 16),
@@ -624,10 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   fontSize: 20,
                                   fontWeight: FontWeight.w700,
                                 ),
-                              )
-                                  .animate()
-                                  .fadeIn(duration: 400.ms, delay: 900.ms)
-                                  .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 900.ms, curve: Curves.easeOutCubic),
+                              ),
                               const SizedBox(height: 16),
                               if (_transactions.isEmpty)
                                 SizedBox(

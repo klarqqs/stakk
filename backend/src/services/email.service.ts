@@ -226,12 +226,12 @@ export async function sendOTPEmail(
       },
     });
 
-    await transporter.sendMail({
+  await transporter.sendMail({
       from: emailFrom,
-      to: email,
-      subject,
+    to: email,
+    subject,
       html,
-    });
+  });
   } else {
     throw new Error(`Unsupported EMAIL_SERVICE: ${emailService}. Use 'resend', 'sendgrid', or 'gmail'`);
   }

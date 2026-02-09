@@ -14,7 +14,9 @@ class ErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
+    return 
+    
+    Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? AppColors.error.withValues(alpha: 0.12) : AppColors.errorBackground,
@@ -50,5 +52,6 @@ class ErrorBanner extends StatelessWidget {
         ],
       ),
     );
+ 
   }
 }

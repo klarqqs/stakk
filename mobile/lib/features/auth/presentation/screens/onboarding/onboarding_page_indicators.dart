@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
 
@@ -24,10 +23,11 @@ class OnboardingPageIndicators extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(total, (i) {
         final isActive = page == i;
+        
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 350),
+          duration: const Duration(milliseconds: 450),
           curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.symmetric(horizontal: 5),
+          margin: EdgeInsets.symmetric(horizontal: isActive ? 6 : 4),
           width: isActive ? 32 : 8,
           height: 8,
           decoration: BoxDecoration(
@@ -41,14 +41,7 @@ class OnboardingPageIndicators extends StatelessWidget {
             color: isActive ? null : inactive.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(AppRadius.full),
           ),
-        )
-            .animate(key: ValueKey('indicator_$i'))
-            .scale(
-              begin: isActive ? const Offset(0.8, 0.8) : const Offset(1.0, 1.0),
-              end: const Offset(1.0, 1.0),
-              duration: 300.ms,
-              curve: Curves.easeOutBack,
-            );
+        );
       }),
     );
   }
