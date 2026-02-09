@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/node';
+import * as SentryModule from '@sentry/node';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 
 /**
@@ -19,7 +19,7 @@ export function initializeSentry() {
   const environment = process.env.NODE_ENV || 'development';
   const release = process.env.SENTRY_RELEASE || `stakk-backend@${process.env.npm_package_version || 'unknown'}`;
 
-  Sentry.init({
+  SentryModule.init({
     dsn,
     environment,
     release,
@@ -61,4 +61,5 @@ export function initializeSentry() {
   console.log(`✅ Sentry initialized for backend (${environment})`);
 }
 
-export { Sentry };
+// Re-export Sentry namespace properly for ESM
+export const Sentry = SentryModule;

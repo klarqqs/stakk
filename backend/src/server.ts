@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { initializeSentry, Sentry } from './config/sentry.ts';
+import * as Sentry from '@sentry/node';
+import { initializeSentry } from './config/sentry.ts';
 import authRoutes from './routes/auth.routes.ts';
 import walletRoutes from './routes/wallet.routes.ts';
 import webhookRoutes from './routes/webhook.routes.ts';
@@ -106,21 +107,6 @@ app.use('/api/referrals', referralRoutes);
 app.use('/api/transparency', transparencyRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/app', appRoutes);
-
-// Sentry error handler (must be before other error handlers)
-app.use(Sentry.Handlers.errorHandler());
-
-// Custom error handler
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  // Capture error in Sentry
-  Sentry.captureException(err);
-  
-  console.error('Unhandled error:', err);
-  res.status(500).json({ 
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
-  });
-});
 
 // Sentry error handler (must be before other error handlers)
 app.use(Sentry.Handlers.errorHandler());
