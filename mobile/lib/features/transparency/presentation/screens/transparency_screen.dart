@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/core/constants/app_constants.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
+import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
+import 'package:stakk_savings/features/transparency/presentation/widgets/transparency_skeleton_loader.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TransparencyScreen extends StatefulWidget {
   const TransparencyScreen({super.key});
@@ -22,6 +26,13 @@ class _TransparencyScreenState extends State<TransparencyScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  Future<void> _openStellarExplorer(String address) async {
+    final url = Uri.parse('https://stellar.expert/explorer/public/account/$address');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.inAppWebView);
+    }
   }
 
   Future<void> _load() async {
@@ -59,7 +70,7 @@ class _TransparencyScreenState extends State<TransparencyScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const TransparencySkeletonLoader()
             : _error != null
                 ? Center(
                     child: Padding(
@@ -71,7 +82,7 @@ class _TransparencyScreenState extends State<TransparencyScreen> {
                           const SizedBox(height: 16),
                           Text(_error!, textAlign: TextAlign.center),
                           const SizedBox(height: 16),
-                          FilledButton(onPressed: _load, child: const Text('Retry')),
+                          SizedBox(width: double.infinity, child: PrimaryButton(label: 'Retry', onPressed: _load)),
                         ],
                       ),
                     ),
@@ -82,7 +93,7 @@ class _TransparencyScreenState extends State<TransparencyScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          '100% Transparent. 100% On-Chain',
+                          '100% Transparent.\n100% On-Chain',
                           style: AppTheme.header(context: context, fontSize: 22, fontWeight: FontWeight.w700),
                           textAlign: TextAlign.center,
                         ),
@@ -121,9 +132,7 @@ class _TransparencyScreenState extends State<TransparencyScreen> {
                         const SizedBox(height: 32),
                         if (_stats!.treasuryAddress.isNotEmpty)
                           OutlinedButton.icon(
-                            onPressed: () {
-                              // Could open Stellar explorer
-                            },
+                            onPressed: () => _openStellarExplorer(_stats!.treasuryAddress),
                             icon: const Icon(Icons.open_in_new),
                             label: const Text('Verify on Blockchain'),
                           ),
@@ -144,21 +153,42 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: AppTheme.body(fontSize: 13, color: AppColors.textSecondaryLight)),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceVariantDarkMuted : Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        border: Border.all(color: isDark ? AppColors.borderDark.withValues(alpha: 0.4) : AppColors.borderLight.withValues(alpha: 0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 4,
+            height: 28,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: primary.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Text(label, style: AppTheme.body(fontSize: 13, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+          const SizedBox(height: 4),
+          Text(value, style: AppTheme.header(context: context, fontSize: 22, fontWeight: FontWeight.w700)),
+          if (subtitle != null) ...[
             const SizedBox(height: 4),
-            Text(value, style: AppTheme.header(context: context, fontSize: 22, fontWeight: FontWeight.w700)),
-            if (subtitle != null) ...[
-              const SizedBox(height: 4),
-              Text(subtitle!, style: AppTheme.body(fontSize: 12, color: AppColors.success)),
-            ],
+            Text(subtitle!, style: AppTheme.body(fontSize: 12, color: AppColors.success)),
           ],
-        ),
+        ],
       ),
     );
   }

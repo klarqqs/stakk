@@ -10,6 +10,14 @@ class ApiClient {
   final _storage = const FlutterSecureStorage();
   final _authService = AuthService();
 
+  /// Set at app startup to auto-logout and navigate to login when session expires.
+  static void Function()? onSessionExpired;
+
+  Never _handleSessionExpired() {
+    onSessionExpired?.call();
+    throw ApiException('Session expired');
+  }
+
   Future<String?> _getAccessToken() async {
     final access = await _storage.read(key: 'accessToken');
     if (access != null) return access;
@@ -81,7 +89,7 @@ class ApiClient {
 
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       throw ApiException('Failed to fetch balance');
@@ -99,7 +107,7 @@ class ApiClient {
 
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       throw ApiException('Failed to fetch transactions');
@@ -117,7 +125,7 @@ class ApiClient {
 
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -137,7 +145,7 @@ class ApiClient {
 
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       throw ApiException('Failed to fetch banks');
@@ -163,7 +171,7 @@ class ApiClient {
 
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -191,7 +199,7 @@ class ApiClient {
 
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -218,7 +226,7 @@ class ApiClient {
 
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -237,7 +245,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -256,7 +264,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -275,7 +283,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -294,7 +302,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -322,7 +330,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -351,7 +359,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -369,7 +377,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -389,7 +397,7 @@ class ApiClient {
 
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -420,7 +428,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -440,7 +448,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -459,7 +467,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode == 404) {
       throw ApiException('User not found');
@@ -480,7 +488,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -497,7 +505,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -516,7 +524,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -538,7 +546,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) throw ApiException('Failed to fetch goals');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -553,7 +561,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) throw ApiException('Failed to fetch goal');
     return GoalDetail.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
@@ -567,7 +575,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 201) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -585,7 +593,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -603,7 +611,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -620,7 +628,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -636,7 +644,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) throw ApiException('Failed to fetch locked savings');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -651,7 +659,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) throw ApiException('Failed to fetch rates');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -667,7 +675,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 201) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -684,7 +692,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
@@ -702,7 +710,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) throw ApiException('Failed to get code');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -716,7 +724,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) throw ApiException('Failed to fetch referrals');
     return ReferralStats.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
@@ -729,7 +737,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) throw ApiException('Failed to fetch leaderboard');
     final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -745,7 +753,7 @@ class ApiClient {
     final res = await _requestWithRefresh(() async => http.get(uri, headers: await _headers(withAuth: true)));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) throw ApiException('Failed to fetch notifications');
     return NotificationsResponse.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
@@ -758,7 +766,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
     if (res.statusCode != 200) return 0;
     final body = jsonDecode(res.body) as Map<String, dynamic>;
@@ -772,7 +780,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
     }
   }
 
@@ -783,7 +791,38 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      throw ApiException('Session expired');
+      _handleSessionExpired();
+    }
+  }
+
+  // Device token registration for FCM
+  Future<void> notificationsRegisterDevice({
+    required String token,
+    required String platform,
+  }) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/notifications/register-device'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({
+            'token': token,
+            'platform': platform,
+          }),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      _handleSessionExpired();
+    }
+  }
+
+  Future<void> notificationsDeleteDevice({required String token}) async {
+    final res = await _requestWithRefresh(() async => http.post(
+          Uri.parse('${Env.apiBaseUrl}/notifications/delete-device'),
+          headers: await _headers(withAuth: true),
+          body: jsonEncode({'token': token}),
+        ));
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      _handleSessionExpired();
     }
   }
 
@@ -812,12 +851,16 @@ class User {
   final String phoneNumber;
   final String? email;
   final String? stellarAddress;
+  final String? firstName;
+  final String? lastName;
 
   User({
     required this.id,
     required this.phoneNumber,
     this.email,
     this.stellarAddress,
+    this.firstName,
+    this.lastName,
   });
 
   factory User.fromJson(Map<String, dynamic> json) => User(
@@ -825,7 +868,18 @@ class User {
         phoneNumber: json['phone_number'] as String,
         email: json['email'] as String?,
         stellarAddress: json['stellar_address'] as String?,
+        firstName: json['first_name'] as String?,
+        lastName: json['last_name'] as String?,
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'phone_number': phoneNumber,
+        'email': email,
+        'stellar_address': stellarAddress,
+        'first_name': firstName,
+        'last_name': lastName,
+      };
 }
 
 class WalletBalance {
@@ -1156,13 +1210,20 @@ class SavingsGoal {
   double get progress => targetAmount > 0 ? (currentAmount / targetAmount).clamp(0.0, 1.0) : 0;
 
   factory SavingsGoal.fromJson(Map<String, dynamic> json) => SavingsGoal(
-        id: json['id'] as int,
+        id: json['id'] is int ? json['id'] as int : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
         name: json['name'] as String? ?? '',
-        targetAmount: (json['target_amount'] as num?)?.toDouble() ?? 0,
-        currentAmount: (json['current_amount'] as num?)?.toDouble() ?? 0,
+        targetAmount: _parseDouble(json['target_amount']),
+        currentAmount: _parseDouble(json['current_amount']),
         deadline: json['deadline']?.toString(),
         status: json['status'] as String? ?? 'active',
       );
+
+  static double _parseDouble(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v) ?? 0;
+    return 0;
+  }
 }
 
 class GoalDetail {

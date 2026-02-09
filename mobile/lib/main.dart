@@ -1,16 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 
+import 'api/api_client.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/constants/storage_keys.dart';
+import 'providers/auth_provider.dart';
+import 'services/fcm_service.dart';
 
 import 'features/auth/auth.dart';
 import 'features/dashboard/presentation/screens/dashboard_shell.dart';
 
-void main() {
+/// Top-level function for handling background messages (must be top-level).
+/// This must be a top-level function, not a class method.
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  debugPrint('FCM: Background message received: ${message.messageId}');
+  debugPrint('Title: ${message.notification?.title}');
+  debugPrint('Body: ${message.notification?.body}');
+  debugPrint('Data: ${message.data}');
+  // Handle background message processing here if needed
+  // Note: You can't use BuildContext here, so navigation must be handled
+  // when the app comes to foreground
+}
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase
+  await Firebase.initializeApp();
+  
+  // Set up background message handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
   runApp(const StakkApp());
 }
 
@@ -24,9 +54,18 @@ class StakkApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (_, themeProvider, __) {
-          return MaterialApp(
+      child: Builder(
+        builder: (ctx) {
+          ApiClient.onSessionExpired = () {
+            ctx.read<AuthProvider>().logout().then((_) {
+              if (ctx.mounted) {
+                Navigator.of(ctx).pushNamedAndRemoveUntil('/', (r) => false);
+              }
+            });
+          };
+          return Consumer<ThemeProvider>(
+            builder: (_, themeProvider, __) {
+              return MaterialApp(
             title: 'Stakk',
             debugShowCheckedModeBanner: false,
             theme: themeProvider.lightTheme,
@@ -53,6 +92,8 @@ class StakkApp extends StatelessWidget {
             },
             onUnknownRoute: (_) =>
                 MaterialPageRoute(builder: (_) => const AuthGate()),
+          );
+            },
           );
         },
       ),
@@ -98,8 +139,10 @@ class AuthGate extends StatelessWidget {
   }
 
   Future<AuthGateResult> _checkAuth(BuildContext context) async {
-    final hasToken = await context.read<AuthProvider>().isAuthenticated();
+    final auth = context.read<AuthProvider>();
+    final hasToken = await auth.isAuthenticated();
     if (!hasToken) return AuthGateResult(isAuth: false, hasPasscode: false);
+    await auth.loadUserIfAuthenticated();
     const storage = FlutterSecureStorage();
     final passcode = await storage.read(key: StorageKeys.passcode);
     return AuthGateResult(isAuth: true, hasPasscode: passcode != null && passcode.isNotEmpty);

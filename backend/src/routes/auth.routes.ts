@@ -74,7 +74,7 @@ router.post('/refresh', async (req, res) => {
     }
 
     const userRow = await pool.query(
-      'SELECT id, phone_number, email, stellar_public_key, created_at FROM users WHERE id = $1',
+      'SELECT id, phone_number, email, stellar_public_key, created_at, first_name, last_name FROM users WHERE id = $1',
       [decoded.userId]
     );
 
@@ -98,7 +98,9 @@ router.post('/refresh', async (req, res) => {
         phone_number: user.phone_number,
         email: user.email,
         stellar_address: user.stellar_public_key,
-        created_at: user.created_at
+        created_at: user.created_at,
+        first_name: user.first_name ?? null,
+        last_name: user.last_name ?? null
       }
     });
   } catch (error) {

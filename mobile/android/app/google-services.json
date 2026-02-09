@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "126969602302",
+    "project_id": "stakk-e16ba",
+    "storage_bucket": "stakk-e16ba.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:126969602302:android:339f9a4d806041781945af",
+        "android_client_info": {
+          "package_name": "com.stakk.stakk_savings"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "126969602302-ncerd1f0ajejbtaqfbvmsevchi1bkh9h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBbh9Tr2R6Iw6e5-Jqq6bElAvT6pEQz8AQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "126969602302-ncerd1f0ajejbtaqfbvmsevchi1bkh9h.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "126969602302-c1gh1rjlkrnrknnlcu47ktil2ftrs015.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.stakk.stakkSavings"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

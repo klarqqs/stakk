@@ -1,21 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
+import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
+import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
 import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/features/bills/domain/models/bill_models.dart';
 import 'package:stakk_savings/features/bills/presentation/widgets/bills_pay_sheet.dart';
+import 'package:stakk_savings/features/bills/presentation/widgets/bills_providers_skeleton_loader.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 class BillsProvidersScreen extends StatefulWidget {
   final BillCategoryModel category;
   final double balance;
+  final double? presetAmount;
   final VoidCallback onSuccess;
+  /// If set, opens pay sheet directly for first matching provider (e.g. 'DSTV' for quick pay)
+  final String? preSelectProviderName;
 
   const BillsProvidersScreen({
     super.key,
     required this.category,
     required this.balance,
+    this.presetAmount,
     required this.onSuccess,
+    this.preSelectProviderName,
   });
 
   @override
@@ -45,6 +53,22 @@ class _BillsProvidersScreenState extends State<BillsProvidersScreen> {
           _providers = providers;
           _loading = false;
         });
+        final preSelect = widget.preSelectProviderName?.trim();
+        if (preSelect != null && preSelect.isNotEmpty && providers.isNotEmpty) {
+          BillProviderModel? match;
+          for (final p in providers) {
+            if (p.name.toLowerCase().contains(preSelect.toLowerCase())) {
+              match = p;
+              break;
+            }
+          }
+          if (match != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _openPaySheet(match!, popRouteOnClose: true);
+            });
+            return;
+          }
+        }
       }
     } on ApiException catch (e) {
       if (mounted) {
@@ -67,10 +91,11 @@ class _BillsProvidersScreenState extends State<BillsProvidersScreen> {
     }
   }
 
-  void _openPaySheet(BillProviderModel provider) {
+  void _openPaySheet(BillProviderModel provider, {bool popRouteOnClose = false}) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -78,13 +103,16 @@ class _BillsProvidersScreenState extends State<BillsProvidersScreen> {
         category: widget.category,
         provider: provider,
         balance: widget.balance,
+        presetAmount: widget.presetAmount,
         onClose: () => Navigator.of(ctx).pop(),
         onSuccess: () {
           Navigator.of(ctx).pop();
           widget.onSuccess();
         },
       ),
-    );
+    ).then((_) {
+      if (popRouteOnClose && mounted) Navigator.of(context).pop();
+    });
   }
 
   @override
@@ -96,11 +124,11 @@ class _BillsProvidersScreenState extends State<BillsProvidersScreen> {
           style: AppTheme.header(context: context, fontSize: 20, fontWeight: FontWeight.w700),
         ),
       ),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: RefreshIndicator(
           onRefresh: _load,
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const BillsProvidersSkeletonLoader()
               : SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -167,37 +195,55 @@ class _ProviderTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF),
-                  borderRadius: BorderRadius.circular(12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceVariantDarkMuted : Colors.white,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: isDark ? AppColors.borderDark.withValues(alpha: 0.4) : AppColors.borderLight.withValues(alpha: 0.6)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
                 ),
-                child: Icon(Icons.business, color: const Color(0xFF4F46E5), size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  provider.name,
-                  style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [primary, primary.withValues(alpha: 0.6)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              const Icon(Icons.chevron_right),
-            ],
+                const SizedBox(width: 16),
+                Icon(Icons.business, color: primary, size: 24),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    provider.name,
+                    style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded, size: 12, color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight),
+              ],
+            ),
           ),
         ),
       ),

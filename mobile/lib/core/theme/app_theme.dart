@@ -19,7 +19,7 @@ class AppTheme {
     return brightness == Brightness.dark;
   }
 
-  /// Headline: large, bold. Use for hero text. Inter Bold 24px.
+  /// Headline: large, bold. Use for hero text. Unbounded.
   static TextStyle headline({
     BuildContext? context,
     double? fontSize,
@@ -28,14 +28,14 @@ class AppTheme {
     Brightness? brightness,
   }) {
     final isDark = _isDark(context, brightness);
-    return GoogleFonts.inter(
-      fontSize: fontSize ?? 24,
+    return GoogleFonts.unbounded(
+      fontSize: fontSize ?? 28,
       fontWeight: fontWeight ?? FontWeight.w700,
       color: color ?? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
     );
   }
 
-  /// Header font: Inter Semibold. Pass [context] for theme-aware colors on dark/light.
+  /// Header font: Unbounded. Pass [context] for theme-aware colors on dark/light.
   static TextStyle header({
     BuildContext? context,
     double? fontSize,
@@ -44,14 +44,14 @@ class AppTheme {
     Brightness? brightness,
   }) {
     final isDark = _isDark(context, brightness);
-    return GoogleFonts.inter(
+    return GoogleFonts.unbounded(
       fontSize: fontSize ?? 22,
       fontWeight: fontWeight ?? FontWeight.w600,
       color: color ?? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
     );
   }
 
-  /// Title: Inter Semibold 18px.
+  /// Title: Unbounded Semibold.
   static TextStyle title({
     BuildContext? context,
     double? fontSize,
@@ -60,14 +60,14 @@ class AppTheme {
     Brightness? brightness,
   }) {
     final isDark = _isDark(context, brightness);
-    return GoogleFonts.inter(
+    return GoogleFonts.unbounded(
       fontSize: fontSize ?? 18,
       fontWeight: fontWeight ?? FontWeight.w600,
       color: color ?? (isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
     );
   }
 
-  /// Body font: Inter Medium 16px. Pass [context] for theme-aware colors on dark/light.
+  /// Body font: Fustat. Pass [context] for theme-aware colors on dark/light.
   static TextStyle body({
     BuildContext? context,
     double? fontSize,
@@ -76,14 +76,14 @@ class AppTheme {
     Brightness? brightness,
   }) {
     final isDark = _isDark(context, brightness);
-    return GoogleFonts.inter(
-      fontSize: fontSize ?? 16,
-      fontWeight: fontWeight ?? FontWeight.w500,
+    return GoogleFonts.fustat(
+      fontSize: fontSize ?? 14,
+      fontWeight: fontWeight ?? FontWeight.w400,
       color: color ?? (isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight),
     );
   }
 
-  /// Caption: Inter Regular 14px.
+  /// Caption: Fustat Regular.
   static TextStyle caption({
     BuildContext? context,
     double? fontSize,
@@ -92,14 +92,14 @@ class AppTheme {
     Brightness? brightness,
   }) {
     final isDark = _isDark(context, brightness);
-    return GoogleFonts.inter(
-      fontSize: fontSize ?? 14,
+    return GoogleFonts.fustat(
+      fontSize: fontSize ?? 12,
       fontWeight: fontWeight ?? FontWeight.w400,
       color: color ?? (isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight),
     );
   }
 
-  /// Balance/Numbers: Inter Semibold 32-48px with letterSpacing -0.5
+  /// Balance/Numbers: Unbounded with letterSpacing.
   static TextStyle balance({
     BuildContext? context,
     double? fontSize,
@@ -108,7 +108,7 @@ class AppTheme {
     Brightness? brightness,
   }) {
     final isDark = _isDark(context, brightness);
-    return GoogleFonts.inter(
+    return GoogleFonts.unbounded(
       fontSize: fontSize ?? 36,
       fontWeight: fontWeight ?? FontWeight.w600,
       letterSpacing: -0.5,

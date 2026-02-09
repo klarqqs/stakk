@@ -65,7 +65,7 @@ export class AppleAuthController {
       }
 
       const providerRow = await pool.query(
-        `SELECT u.id, u.phone_number, u.email, u.stellar_public_key, u.created_at
+        `SELECT u.id, u.phone_number, u.email, u.stellar_public_key, u.created_at, u.first_name, u.last_name
          FROM auth_providers ap
          JOIN users u ON u.id = ap.user_id
          WHERE ap.provider = 'apple' AND ap.provider_user_id = $1`,
@@ -83,7 +83,7 @@ export class AppleAuthController {
         user.email = normalizedEmail;
       } else {
         const emailRow = await pool.query(
-          'SELECT id, phone_number, email, stellar_public_key, created_at FROM users WHERE LOWER(email) = $1',
+          'SELECT id, phone_number, email, stellar_public_key, created_at, first_name, last_name FROM users WHERE LOWER(email) = $1',
           [normalizedEmail]
         );
 

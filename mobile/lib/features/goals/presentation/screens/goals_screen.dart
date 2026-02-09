@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/api_client.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:stakk_savings/core/components/inputs/amount_input.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
+import 'package:stakk_savings/features/goals/presentation/widgets/goals_skeleton_loader.dart';
+import 'package:stakk_savings/features/goals/presentation/widgets/goal_detail_skeleton_loader.dart';
+import 'package:stakk_savings/core/utils/snackbar_utils.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 class GoalsScreen extends StatefulWidget {
@@ -32,28 +36,55 @@ class _GoalsScreenState extends State<GoalsScreen> {
     });
     try {
       final list = await context.read<AuthProvider>().goalsGetAll();
-      if (mounted) setState(() {
-        _goals = list;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _goals = list;
+          _loading = false;
+        });
+      }
     } on ApiException catch (e) {
-      if (mounted) setState(() {
-        _error = e.message;
-        _loading = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() {
-        _error = 'Failed to load goals';
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.message;
+          _loading = false;
+        });
+      }
+    } catch (e, st) {
+      debugPrint('Goals load error: $e');
+      debugPrint('Stack trace: $st');
+      if (mounted) {
+        setState(() {
+          _error = _formatError(e);
+          _loading = false;
+        });
+      }
     }
+  }
+
+  String _formatError(Object e) {
+    final msg = e.toString();
+    if (msg.contains('SocketException') || msg.contains('Connection refused')) {
+      return 'No internet. Check your connection and retry.';
+    }
+    if (msg.contains('TimeoutException') || msg.contains('timed out')) {
+      return 'Request timed out. Please retry.';
+    }
+    if (msg.contains('FormatException') || msg.contains('type')) {
+      return 'Invalid response from server. Please try again later.';
+    }
+    return 'Failed to load goals. Please retry.';
   }
 
   void _showCreateGoal() {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xxl))),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.xxl),
+        ),
+      ),
       builder: (ctx) => _CreateGoalSheet(
         onSuccess: () {
           Navigator.pop(ctx);
@@ -71,57 +102,98 @@ class _GoalsScreenState extends State<GoalsScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const GoalsSkeletonLoader()
             : _error != null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.error_outline, size: 48, color: AppColors.error),
-                          const SizedBox(height: 16),
-                          Text(_error!, textAlign: TextAlign.center, style: AppTheme.body(fontSize: 14, color: AppColors.error)),
-                          const SizedBox(height: 16),
-                          FilledButton(onPressed: _load, child: const Text('Retry')),
-                        ],
-                      ),
-                    ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.all(16),
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      if (_goals.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 48),
-                          child: Column(
-                            children: [
-                              Icon(Icons.flag_outlined, size: 64, color: AppColors.textTertiaryLight),
-                              const SizedBox(height: 16),
-                              Text('No goals yet', style: AppTheme.header(context: context, fontSize: 18, fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 8),
-                              Text('Create a savings goal to start tracking your progress', textAlign: TextAlign.center, style: AppTheme.body(fontSize: 14, color: AppColors.textSecondaryLight)),
-                            ],
-                          ),
-                        )
-                      else
-                        ..._goals.map((g) => _GoalCard(
-                              goal: g,
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GoalDetailScreen(goalId: g.id))),
-                              onSuccess: _load,
-                            )),
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: AppColors.error,
+                      ),
                       const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed: _showCreateGoal,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Create New Goal'),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: AppTheme.body(
+                          fontSize: 14,
+                          color: AppColors.error,
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: PrimaryButton(label: 'Retry', onPressed: _load),
                       ),
                     ],
                   ),
+                ),
+              )
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (_goals.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 48),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.flag_outlined,
+                            size: 64,
+                            color: AppColors.textTertiaryLight,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No goals yet',
+                            style: AppTheme.header(
+                              context: context,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Create a savings goal to start tracking your progress',
+                            textAlign: TextAlign.center,
+                            style: AppTheme.body(
+                              fontSize: 14,
+                              color: AppColors.textSecondaryLight,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ..._goals.map(
+                      (g) => _GoalCard(
+                        goal: g,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => GoalDetailScreen(goalId: g.id),
+                          ),
+                        ),
+                        onSuccess: _load,
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _showCreateGoal,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Create New Goal'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }
@@ -132,40 +204,124 @@ class _GoalCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onSuccess;
 
-  const _GoalCard({required this.goal, required this.onTap, required this.onSuccess});
+  const _GoalCard({
+    required this.goal,
+    required this.onTap,
+    required this.onSuccess,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
     final progress = goal.progress;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text(goal.name, style: AppTheme.body(fontSize: 16, fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  if (goal.deadline != null)
-                    Text(
-                      'Deadline: ${goal.deadline}',
-                      style: AppTheme.body(fontSize: 12, color: AppColors.textSecondaryLight),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceVariantDarkMuted : Colors.white,
+              borderRadius: BorderRadius.circular(AppRadius.xl),
+              border: Border.all(
+                color: isDark
+                    ? AppColors.borderDark.withValues(alpha: 0.4)
+                    : AppColors.borderLight.withValues(alpha: 0.6),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 4,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [primary, primary.withValues(alpha: 0.6)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
                     ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              LinearProgressIndicator(value: progress, minHeight: 8, borderRadius: BorderRadius.circular(4)),
-              const SizedBox(height: 8),
-              Text(
-                '\$${goal.currentAmount.toStringAsFixed(2)} / \$${goal.targetAmount.toStringAsFixed(2)} (${(progress * 100).toStringAsFixed(0)}%)',
-                style: AppTheme.body(fontSize: 13, color: AppColors.textSecondaryLight),
-              ),
-            ],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              goal.name,
+                              style: AppTheme.body(
+                                context: context,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (goal.deadline != null)
+                            Text(
+                              'Deadline: ${goal.deadline}',
+                              style: AppTheme.caption(
+                                context: context,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '\$${goal.currentAmount.toStringAsFixed(0)} / \$${goal.targetAmount.toStringAsFixed(0)}',
+                        style: AppTheme.caption(context: context, fontSize: 13),
+                      ),
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 4,
+                          backgroundColor: isDark
+                              ? AppColors.surfaceDark
+                              : AppColors.surfaceVariantLight,
+                          valueColor: AlwaysStoppedAnimation<Color>(primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '${(progress * 100).toStringAsFixed(0)}%',
+                  style: AppTheme.body(
+                    context: context,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: primary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 12,
+                  color: isDark
+                      ? AppColors.textTertiaryDark
+                      : AppColors.textTertiaryLight,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -218,33 +374,49 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
       });
       widget.onSuccess();
     } on ApiException catch (e) {
-      if (mounted) setState(() {
-        _error = e.message;
-        _saving = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.message;
+          _saving = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() {
-        _error = 'Failed to create goal';
-        _saving = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to create goal';
+          _saving = false;
+        });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Create Goal', style: AppTheme.header(context: context, fontSize: 20, fontWeight: FontWeight.w700)),
+            Text(
+              'Create Goal',
+              style: AppTheme.header(
+                context: context,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 24),
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Goal name', hintText: 'e.g. Vacation fund'),
+              decoration: const InputDecoration(
+                labelText: 'Goal name',
+                hintText: 'e.g. Vacation fund',
+              ),
             ),
             const SizedBox(height: 16),
             AmountInput(
@@ -255,17 +427,26 @@ class _CreateGoalSheetState extends State<_CreateGoalSheet> {
             ),
             if (_error != null) ...[
               const SizedBox(height: 16),
-              Text(_error!, style: AppTheme.body(fontSize: 14, color: AppColors.error)),
+              Text(
+                _error!,
+                style: AppTheme.body(fontSize: 14, color: AppColors.error),
+              ),
             ],
             const SizedBox(height: 24),
             Row(
               children: [
-                Expanded(child: OutlinedButton(onPressed: widget.onClose, child: const Text('Cancel'))),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: widget.onClose,
+                    child: const Text('Cancel'),
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton(
+                  child: PrimaryButton(
+                    label: 'Create',
                     onPressed: _saving ? null : _create,
-                    child: _saving ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Create'),
+                    isLoading: _saving,
                   ),
                 ),
               ],
@@ -304,20 +485,26 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
     });
     try {
       final d = await context.read<AuthProvider>().goalsGetOne(widget.goalId);
-      if (mounted) setState(() {
-        _detail = d;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _detail = d;
+          _loading = false;
+        });
+      }
     } on ApiException catch (e) {
-      if (mounted) setState(() {
-        _error = e.message;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = e.message;
+          _loading = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() {
-        _error = 'Failed to load';
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to load';
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -327,32 +514,54 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.xxl),
+        ),
+      ),
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Add to goal', style: AppTheme.header(context: context, fontSize: 18, fontWeight: FontWeight.w600)),
+              Text(
+                'Add to goal',
+                style: AppTheme.header(
+                  context: context,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 16),
-              AmountInput(controller: controller, currencyPrefix: '\$', hintText: '0.00'),
+              AmountInput(
+                controller: controller,
+                currencyPrefix: '\$',
+                hintText: '0.00',
+              ),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
+                child: PrimaryButton(
+                  label: 'Add',
                   onPressed: () async {
                     final amt = double.tryParse(controller.text) ?? 0;
                     if (amt <= 0) return;
                     Navigator.pop(ctx);
                     try {
-                      await context.read<AuthProvider>().goalsContribute(widget.goalId, amt);
+                      await context.read<AuthProvider>().goalsContribute(
+                        widget.goalId,
+                        amt,
+                      );
                       _load();
                     } on ApiException catch (e) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+                      if (mounted) showTopSnackBar(context, e.message);
                     }
                   },
-                  child: const Text('Add'),
                 ),
               ),
             ],
@@ -364,100 +573,301 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
     return Scaffold(
-      appBar: AppBar(title: const Text('Goal Details')),
+      appBar: AppBar(
+        title: Text('Goal Details'),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const GoalDetailSkeletonLoader()
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(_error!, style: AppTheme.body(fontSize: 14, color: AppColors.error)),
-                      const SizedBox(height: 16),
-                      FilledButton(onPressed: _load, child: const Text('Retry')),
-                    ],
-                  ),
-                )
-              : _detail == null
-                  ? const SizedBox.shrink()
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            width: 120,
-                            height: 120,
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                CircularProgressIndicator(
-                                  value: _detail!.goal.progress,
-                                  strokeWidth: 8,
-                                  backgroundColor: AppColors.surfaceVariantLight,
-                                ),
-                                Text(
-                                  '${(_detail!.goal.progress * 100).toStringAsFixed(0)}%',
-                                  style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
-                                ),
-                              ],
-                            ),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                    const SizedBox(height: 16),
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: AppTheme.body(
+                        fontSize: 14,
+                        color: AppColors.error,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: PrimaryButton(label: 'Retry', onPressed: _load),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : _detail == null
+          ? const SizedBox.shrink()
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppColors.surfaceVariantDarkMuted
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(AppRadius.xl),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.borderDark.withValues(alpha: 0.4)
+                            : AppColors.borderLight.withValues(alpha: 0.6),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: isDark ? 0.15 : 0.03,
                           ),
-                          const SizedBox(height: 24),
-                          Text(_detail!.goal.name, style: AppTheme.header(context: context, fontSize: 22, fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 8),
-                          Text(
-                            '\$${_detail!.goal.currentAmount.toStringAsFixed(2)} / \$${_detail!.goal.targetAmount.toStringAsFixed(2)}',
-                            style: AppTheme.body(fontSize: 16, color: AppColors.textSecondaryLight),
-                          ),
-                          const SizedBox(height: 32),
-                          Row(
+                          blurRadius: 12,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: 120,
+                          height: 120,
+                          child: Stack(
+                            alignment: Alignment.center,
                             children: [
-                              Expanded(child: FilledButton.icon(onPressed: _showAddMoney, icon: const Icon(Icons.add), label: const Text('Add Money'))),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () async {
-                                    final amt = _detail!.goal.currentAmount;
-                                    if (amt <= 0) return;
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        title: const Text('Withdraw'),
-                                        content: Text('Withdraw \$${amt.toStringAsFixed(2)} from this goal?'),
-                                        actions: [
-                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Withdraw')),
-                                        ],
-                                      ),
-                                    );
-                                    if (confirm == true && mounted) {
-                                      try {
-                                        await context.read<AuthProvider>().goalsWithdraw(widget.goalId, amt);
-                                        _load();
-                                        if (mounted) Navigator.pop(context);
-                                      } on ApiException catch (e) {
-                                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-                                      }
-                                    }
-                                  },
-                                  icon: const Icon(Icons.remove),
-                                  label: const Text('Withdraw'),
+                              CircularProgressIndicator(
+                                value: _detail!.goal.progress,
+                                strokeWidth: 10,
+                                backgroundColor: isDark
+                                    ? AppColors.surfaceDark
+                                    : AppColors.surfaceVariantLight,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  primary,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text(
+                                  '${(_detail!.goal.progress * 100).toStringAsFixed(0)}%',
+                                  style: AppTheme.header(
+                                    context: context,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 32),
-                          Text('Contributions', style: AppTheme.header(context: context, fontSize: 16, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 12),
-                          ..._detail!.contributions.map((c) => ListTile(
-                                title: Text('\$${c.amountUsdc.toStringAsFixed(2)}'),
-                                subtitle: Text(c.source),
-                                trailing: Text(c.createdAt.length > 10 ? c.createdAt.substring(0, 10) : c.createdAt),
-                              )),
-                        ],
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          _detail!.goal.name,
+                          style: AppTheme.header(
+                            context: context,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '\$${_detail!.goal.currentAmount.toStringAsFixed(2)} / \$${_detail!.goal.targetAmount.toStringAsFixed(2)}',
+                          style: AppTheme.body(context: context, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _showAddMoney,
+                          icon: const Icon(Icons.add_rounded, size: 20),
+                          label: const Text('Add Money'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppRadius.lg),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final amt = _detail!.goal.currentAmount;
+                            if (amt <= 0) return;
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Withdraw'),
+                                content: Text(
+                                  'Withdraw \$${amt.toStringAsFixed(2)} from this goal?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: primary,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: const Text('Withdraw'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true && mounted) {
+                              try {
+                                await context
+                                    .read<AuthProvider>()
+                                    .goalsWithdraw(widget.goalId, amt);
+                                _load();
+                                if (mounted) Navigator.pop(context);
+                              } on ApiException catch (e) {
+                                if (mounted) showTopSnackBar(context, e.message);
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.remove_rounded, size: 20),
+                          label: const Text('Withdraw'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: primary,
+                            side: BorderSide(
+                              color: primary.withValues(alpha: 0.5),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppRadius.lg),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Text(
+                    'Contributions',
+                    style: AppTheme.header(
+                      context: context,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_detail!.contributions.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Text(
+                        'No contributions yet',
+                        style: AppTheme.caption(context: context, fontSize: 14),
+                      ),
+                    )
+                  else
+                    ..._detail!.contributions.map(
+                      (c) => _ContributionTile(
+                        amount: c.amountUsdc,
+                        source: c.source,
+                        date: c.createdAt.length > 10
+                            ? c.createdAt.substring(0, 10)
+                            : c.createdAt,
+                        isDark: isDark,
                       ),
                     ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+class _ContributionTile extends StatelessWidget {
+  final double amount;
+  final String source;
+  final String date;
+  final bool isDark;
+
+  const _ContributionTile({
+    required this.amount,
+    required this.source,
+    required this.date,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.surfaceVariantDarkMuted : Colors.white,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(
+            color: isDark
+                ? AppColors.borderDark.withValues(alpha: 0.4)
+                : AppColors.borderLight.withValues(alpha: 0.6),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 4,
+              height: 40,
+              decoration: BoxDecoration(
+                color: primary.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '\$${amount.toStringAsFixed(2)}',
+                    style: AppTheme.body(
+                      context: context,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    source,
+                    style: AppTheme.caption(context: context, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            Text(date, style: AppTheme.caption(context: context, fontSize: 12)),
+          ],
+        ),
+      ),
     );
   }
 }

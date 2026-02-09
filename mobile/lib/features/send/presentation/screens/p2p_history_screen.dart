@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
+import 'package:stakk_savings/features/send/presentation/widgets/p2p_history_skeleton_loader.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 class P2pHistoryScreen extends StatefulWidget {
@@ -87,7 +89,7 @@ class _P2pHistoryScreenState extends State<P2pHistoryScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const P2pHistorySkeletonLoader()
             : _error != null
                 ? Center(
                     child: Padding(
@@ -99,7 +101,7 @@ class _P2pHistoryScreenState extends State<P2pHistoryScreen> {
                           const SizedBox(height: 16),
                           Text(_error!, textAlign: TextAlign.center, style: AppTheme.body(fontSize: 14, color: AppColors.error)),
                           const SizedBox(height: 16),
-                          FilledButton(onPressed: _load, child: const Text('Retry')),
+                          SizedBox(width: double.infinity, child: PrimaryButton(label: 'Retry', onPressed: _load)),
                         ],
                       ),
                     ),
@@ -161,30 +163,34 @@ class _P2pTransferTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSent = transfer.direction == 'sent';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark ? AppColors.surfaceVariantDark : AppColors.surfaceVariantLight,
+        color: isDark ? AppColors.surfaceVariantDarkMuted : Colors.white,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: Theme.of(context).brightness == Brightness.dark ? AppColors.borderDark : AppColors.borderLight),
+        border: Border.all(color: isDark ? AppColors.borderDark.withValues(alpha: 0.4) : AppColors.borderLight.withValues(alpha: 0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            width: 4,
+            height: 48,
             decoration: BoxDecoration(
-              color: (isSent ? AppColors.error : AppColors.success).withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isSent ? Icons.arrow_upward : Icons.arrow_downward,
               color: isSent ? AppColors.error : AppColors.success,
-              size: 20,
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +210,7 @@ class _P2pTransferTile extends StatelessWidget {
                   ),
                 Text(
                   _formatDate(transfer.createdAt),
-                  style: AppTheme.body(fontSize: 12, color: AppColors.textTertiaryLight),
+                  style: AppTheme.body(fontSize: 12, color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight),
                 ),
               ],
             ),

@@ -57,6 +57,7 @@ class _PasscodeGateScreenState extends State<PasscodeGateScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
@@ -65,7 +66,11 @@ class _PasscodeGateScreenState extends State<PasscodeGateScreen> {
               const SizedBox(height: 48),
               Text(
                 'Enter passcode',
-                style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
+                style: AppTheme.header(
+                  context: context,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -83,24 +88,14 @@ class _PasscodeGateScreenState extends State<PasscodeGateScreen> {
                   ),
                   child: Text(
                     _error!,
-                    style: AppTheme.body(fontSize: 14, color: const Color(0xFFDC2626)),
+                    style: AppTheme.body(
+                      fontSize: 14,
+                      color: const Color(0xFFDC2626),
+                    ),
                   ),
                 ),
               ],
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/auth/check-email',
-                    (r) => false,
-                  );
-                },
-                child: Text(
-                  'Use password instead',
-                  style: AppTheme.body(fontSize: 14, color: const Color(0xFF4F46E5)),
-                ),
-              ),
-              const SizedBox(height: 24),
+               const SizedBox(height: 48),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(4, (i) {
@@ -118,9 +113,21 @@ class _PasscodeGateScreenState extends State<PasscodeGateScreen> {
                 }),
               ),
               const Spacer(),
-              _PasscodePad(
-                onDigit: _onDigit,
-                onBackspace: _onBackspace,
+              _PasscodePad(onDigit: _onDigit, onBackspace: _onBackspace),
+              const Spacer(),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil('/auth/check-email', (r) => false);
+                },
+                child: Text(
+                  'Use password instead',
+                  style: AppTheme.body(
+                    fontSize: 14,
+                    color: const Color(0xFF4F46E5),
+                  ),
+                ),
               ),
               const SizedBox(height: 32),
             ],
@@ -135,10 +142,7 @@ class _PasscodePad extends StatelessWidget {
   final void Function(String) onDigit;
   final VoidCallback onBackspace;
 
-  const _PasscodePad({
-    required this.onDigit,
-    required this.onBackspace,
-  });
+  const _PasscodePad({required this.onDigit, required this.onBackspace});
 
   @override
   Widget build(BuildContext context) {
@@ -174,12 +178,9 @@ class _PasscodePad extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(width: 72),
+            _PadButton(label: ' ', onPressed: () => {}),
             _PadButton(label: '0', onPressed: () => onDigit('0')),
-            _PadButton(
-              icon: Icons.backspace_outlined,
-              onPressed: onBackspace,
-            ),
+            _PadButton(icon: Icons.backspace_outlined, onPressed: onBackspace),
           ],
         ),
       ],
@@ -214,7 +215,11 @@ class _PadButton extends StatelessWidget {
                 ? Icon(icon, size: 28, color: const Color(0xFF374151))
                 : Text(
                     label!,
-                    style: AppTheme.header(context: context, fontSize: 28, fontWeight: FontWeight.w500),
+                    style: AppTheme.header(
+                      context: context,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
           ),
         ),

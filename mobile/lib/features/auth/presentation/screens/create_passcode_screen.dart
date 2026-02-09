@@ -44,6 +44,7 @@ class _CreatePasscodeScreenState extends State<CreatePasscodeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
@@ -52,7 +53,11 @@ class _CreatePasscodeScreenState extends State<CreatePasscodeScreen> {
               const SizedBox(height: 48),
               Text(
                 'Create passcode',
-                style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
+                style: AppTheme.header(
+                  context: context,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -76,12 +81,14 @@ class _CreatePasscodeScreenState extends State<CreatePasscodeScreen> {
                   );
                 }),
               ),
-              const Spacer(),
-              _PasscodePad(
-                onDigit: _onDigit,
-                onBackspace: _onBackspace,
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _PasscodePad(onDigit: _onDigit, onBackspace: _onBackspace),
+                  ],
+                ),
               ),
-              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -94,10 +101,7 @@ class _PasscodePad extends StatelessWidget {
   final void Function(String) onDigit;
   final VoidCallback onBackspace;
 
-  const _PasscodePad({
-    required this.onDigit,
-    required this.onBackspace,
-  });
+  const _PasscodePad({required this.onDigit, required this.onBackspace});
 
   @override
   Widget build(BuildContext context) {
@@ -133,12 +137,9 @@ class _PasscodePad extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const SizedBox(width: 72),
+            _PadButton(label: ' ', onPressed: () => {}),
             _PadButton(label: '0', onPressed: () => onDigit('0')),
-            _PadButton(
-              icon: Icons.backspace_outlined,
-              onPressed: onBackspace,
-            ),
+            _PadButton(icon: Icons.backspace_outlined, onPressed: onBackspace),
           ],
         ),
       ],
@@ -173,7 +174,11 @@ class _PadButton extends StatelessWidget {
                 ? Icon(icon, size: 28, color: const Color(0xFF374151))
                 : Text(
                     label!,
-                    style: AppTheme.header(context: context, fontSize: 28, fontWeight: FontWeight.w500),
+                    style: AppTheme.header(
+                      context: context,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
           ),
         ),

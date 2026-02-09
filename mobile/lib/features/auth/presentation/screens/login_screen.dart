@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/api/auth_service.dart';
@@ -107,7 +108,7 @@ class _LoginScreenState extends State<LoginScreen> {
           },
         ),
       ),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Column(
@@ -182,20 +183,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
               const SizedBox(height: 24),
               SizedBox(
-                height: 52,
-                child: ElevatedButton(
+                width: double.infinity,
+                child: PrimaryButton(
+                  label: 'Sign In',
                   onPressed: _loading ? null : _login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4F46E5),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Sign In'),
+                  isLoading: _loading,
                 ),
               ),
               const SizedBox(height: 16),

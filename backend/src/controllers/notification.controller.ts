@@ -1,5 +1,6 @@
 import type { Response } from 'express';
 import * as notificationService from '../services/notification.service.ts';
+import * as deviceTokenService from '../services/device-token.service.ts';
 import type { AuthRequest } from '../middleware/auth.middleware.ts';
 
 export class NotificationController {
@@ -64,6 +65,44 @@ export class NotificationController {
     } catch (error) {
       console.error('Unread count error:', error);
       res.status(500).json({ error: 'Failed to get count' });
+    }
+  }
+
+  async registerDevice(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId!;
+      const { token, platform } = req.body;
+
+      if (!token || !platform) {
+        return res.status(400).json({ error: 'Token and platform are required' });
+      }
+
+      if (platform !== 'ios' && platform !== 'android') {
+        return res.status(400).json({ error: 'Platform must be ios or android' });
+      }
+
+      await deviceTokenService.registerDeviceToken(userId, token, platform);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Register device error:', error);
+      res.status(500).json({ error: 'Failed to register device' });
+    }
+  }
+
+  async deleteDevice(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId!;
+      const { token } = req.body;
+
+      if (!token) {
+        return res.status(400).json({ error: 'Token is required' });
+      }
+
+      await deviceTokenService.deleteDeviceToken(userId, token);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Delete device error:', error);
+      res.status(500).json({ error: 'Failed to delete device' });
     }
   }
 }

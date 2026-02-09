@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>126969602302-c1gh1rjlkrnrknnlcu47ktil2ftrs015.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.126969602302-c1gh1rjlkrnrknnlcu47ktil2ftrs015</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDiecUbC3rFcBNElzk5rR62r4GyHj86jfg</string>
+	<key>GCM_SENDER_ID</key>
+	<string>126969602302</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.stakk.stakkSavings</string>
+	<key>PROJECT_ID</key>
+	<string>stakk-e16ba</string>
+	<key>STORAGE_BUCKET</key>
+	<string>stakk-e16ba.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:126969602302:ios:9ac4ad9dcb7188c31945af</string>
+</dict>
+</plist>

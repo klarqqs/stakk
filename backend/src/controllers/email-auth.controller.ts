@@ -229,7 +229,7 @@ export class EmailAuthController {
       );
 
       const userRow = await pool.query(
-        `SELECT id, phone_number, email, stellar_public_key, created_at
+        `SELECT id, phone_number, email, stellar_public_key, created_at, first_name, last_name
          FROM users WHERE LOWER(email) = $1`,
         [normalizedEmail]
       );
@@ -438,7 +438,7 @@ export class EmailAuthController {
       );
 
       const userRow = await pool.query(
-        `SELECT id, phone_number, email, stellar_public_key, created_at
+        `SELECT id, phone_number, email, stellar_public_key, created_at, first_name, last_name
          FROM users WHERE LOWER(email) = $1`,
         [normalizedEmail]
       );

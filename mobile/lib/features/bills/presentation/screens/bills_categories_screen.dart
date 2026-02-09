@@ -4,6 +4,7 @@ import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/api/api_client.dart' show ApiException, WalletBalance;
 import 'package:stakk_savings/features/bills/domain/models/bill_models.dart';
 import 'package:stakk_savings/features/bills/presentation/screens/bills_providers_screen.dart';
+import 'package:stakk_savings/features/bills/presentation/widgets/bills_categories_skeleton_loader.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 class BillsCategoriesScreen extends StatefulWidget {
@@ -77,11 +78,11 @@ class _BillsCategoriesScreenState extends State<BillsCategoriesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: RefreshIndicator(
           onRefresh: _load,
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const BillsCategoriesSkeletonLoader()
               : SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),

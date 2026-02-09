@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/core/components/inputs/amount_input.dart';
-import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
-import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
-import 'package:stakk_savings/core/theme/tokens/app_spacing.dart';
 import 'package:stakk_savings/api/api_client.dart';
+import 'package:stakk_savings/features/invest/presentation/widgets/invest_skeleton_loader.dart';
+import 'package:stakk_savings/core/utils/snackbar_utils.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 class InvestScreen extends StatefulWidget {
@@ -79,16 +78,12 @@ class _InvestScreenState extends State<InvestScreen> {
 
   Future<void> _enableEarning() async {
     if (_amountToInvest <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter amount to invest')),
-      );
+      showTopSnackBar(context, 'Enter amount to invest');
       return;
     }
     final available = _balance?.usdc ?? 0;
     if (_amountToInvest > available) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Insufficient USDC balance')),
-      );
+      showTopSnackBar(context, 'Insufficient USDC balance');
       return;
     }
 
@@ -96,21 +91,17 @@ class _InvestScreenState extends State<InvestScreen> {
     try {
       await context.read<AuthProvider>().blendEnable(_amountToInvest);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Deposited \$${_amountToInvest.toStringAsFixed(2)} USDC to earn ${_apy?.apy ?? '5.5%'} APY')),
-        );
+        showTopSnackBar(context, 'Deposited \$${_amountToInvest.toStringAsFixed(2)} USDC to earn ${_apy?.apy ?? '5.5%'} APY');
         _amountController.clear();
         await _load();
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        showTopSnackBar(context, e.message);
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to enable earning')),
-        );
+        showTopSnackBar(context, 'Failed to enable earning');
       }
     } finally {
       if (mounted) setState(() => _actionLoading = false);
@@ -125,20 +116,16 @@ class _InvestScreenState extends State<InvestScreen> {
     try {
       await context.read<AuthProvider>().blendDisable(toWithdraw);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Withdrawn \$${toWithdraw.toStringAsFixed(2)} USDC from Blend')),
-        );
+        showTopSnackBar(context, 'Withdrawn \$${toWithdraw.toStringAsFixed(2)} USDC from Blend');
         await _load();
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        showTopSnackBar(context, e.message);
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to withdraw')),
-        );
+        showTopSnackBar(context, 'Failed to withdraw');
       }
     } finally {
       if (mounted) setState(() => _actionLoading = false);
@@ -148,11 +135,11 @@ class _InvestScreenState extends State<InvestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: RefreshIndicator(
           onRefresh: _load,
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const InvestSkeletonLoader()
               : SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -195,9 +182,9 @@ class _InvestScreenState extends State<InvestScreen> {
                           onPressed: _actionLoading ? null : _disableEarning,
                           icon: _actionLoading
                               ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 3),
                                 )
                               : const Icon(Icons.trending_down, size: 20),
                           label: Text(_actionLoading ? 'Withdrawing...' : 'Withdraw All'),
@@ -226,9 +213,9 @@ class _InvestScreenState extends State<InvestScreen> {
                             onPressed: _actionLoading ? null : _enableEarning,
                             icon: _actionLoading
                                 ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
                                   )
                                 : const Icon(Icons.trending_up, size: 20),
                             label: Text(_actionLoading ? 'Depositing...' : 'Start Earning'),

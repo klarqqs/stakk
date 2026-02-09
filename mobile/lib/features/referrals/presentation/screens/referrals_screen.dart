@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
+import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
+import 'package:stakk_savings/features/referrals/presentation/widgets/referrals_skeleton_loader.dart';
+import 'package:stakk_savings/core/utils/snackbar_utils.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 class ReferralsScreen extends StatefulWidget {
@@ -56,14 +60,14 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
   void _copyCode() {
     if (_stats != null) {
       Clipboard.setData(ClipboardData(text: _stats!.code));
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
+      showTopSnackBar(context, 'Copied to clipboard');
     }
   }
 
   void _share() {
     if (_stats != null) {
       Clipboard.setData(ClipboardData(text: 'Join Stakk with my referral code: ${_stats!.code}'));
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Referral link copied')));
+      showTopSnackBar(context, 'Referral link copied');
     }
   }
 
@@ -74,7 +78,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const ReferralsSkeletonLoader()
             : _error != null
                 ? Center(
                     child: Padding(
@@ -86,7 +90,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                           const SizedBox(height: 16),
                           Text(_error!, textAlign: TextAlign.center),
                           const SizedBox(height: 16),
-                          FilledButton(onPressed: _load, child: const Text('Retry')),
+                          SizedBox(width: double.infinity, child: PrimaryButton(label: 'Retry', onPressed: _load)),
                         ],
                       ),
                     ),
@@ -96,26 +100,10 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              children: [
-                                Text('Your Referral Code', style: AppTheme.body(fontSize: 14, color: AppColors.textSecondaryLight)),
-                                const SizedBox(height: 8),
-                                Text(_stats!.code, style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    FilledButton.icon(onPressed: _copyCode, icon: const Icon(Icons.copy, size: 18), label: const Text('Copy')),
-                                    const SizedBox(width: 12),
-                                    OutlinedButton.icon(onPressed: _share, icon: const Icon(Icons.share, size: 18), label: const Text('Share')),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
+                        _ReferralCodeCard(
+                          code: _stats!.code,
+                          onCopy: _copyCode,
+                          onShare: _share,
                         ),
                         const SizedBox(height: 24),
                         Row(
@@ -153,6 +141,80 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
   }
 }
 
+class _ReferralCodeCard extends StatelessWidget {
+  final String code;
+  final VoidCallback onCopy;
+  final VoidCallback onShare;
+
+  const _ReferralCodeCard({required this.code, required this.onCopy, required this.onShare});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceVariantDarkMuted : Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        border: Border.all(color: isDark ? AppColors.borderDark.withValues(alpha: 0.4) : AppColors.borderLight.withValues(alpha: 0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 4,
+            height: 24,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: primary.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Text('Your Referral Code', style: AppTheme.body(fontSize: 14, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+          const SizedBox(height: 8),
+          Text(code, style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FilledButton.icon(
+                onPressed: onCopy,
+                icon: const Icon(Icons.copy, size: 18),
+                label: const Text('Copy'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: onShare,
+                icon: const Icon(Icons.share, size: 18),
+                label: const Text('Share'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: primary,
+                  side: BorderSide(color: primary.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.lg)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
@@ -161,17 +223,38 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: AppTheme.body(fontSize: 12, color: AppColors.textSecondaryLight)),
-            const SizedBox(height: 4),
-            Text(value, style: AppTheme.header(context: context, fontSize: 18, fontWeight: FontWeight.w700)),
-          ],
-        ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceVariantDarkMuted : Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        border: Border.all(color: isDark ? AppColors.borderDark.withValues(alpha: 0.4) : AppColors.borderLight.withValues(alpha: 0.6)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 4,
+            height: 24,
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: primary.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Text(label, style: AppTheme.body(fontSize: 12, color: isDark ? AppColors.textSecondaryDark : AppColors.textSecondaryLight)),
+          const SizedBox(height: 4),
+          Text(value, style: AppTheme.header(context: context, fontSize: 18, fontWeight: FontWeight.w700)),
+        ],
       ),
     );
   }

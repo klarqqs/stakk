@@ -370,6 +370,8 @@ class AuthUser {
   final String? email;
   final String? stellarAddress;
   final String? createdAt;
+  final String? firstName;
+  final String? lastName;
 
   AuthUser({
     required this.id,
@@ -377,6 +379,8 @@ class AuthUser {
     this.email,
     this.stellarAddress,
     this.createdAt,
+    this.firstName,
+    this.lastName,
   });
 
   factory AuthUser.fromJson(Map<String, dynamic> json) => AuthUser(
@@ -385,5 +389,7 @@ class AuthUser {
         email: json['email'] as String?,
         stellarAddress: json['stellar_address'] as String?,
         createdAt: json['created_at'] as String?,
+        firstName: json['first_name'] as String?,
+        lastName: json['last_name'] as String?,
       );
 }

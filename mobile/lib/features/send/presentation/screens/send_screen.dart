@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/api_client.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
+import 'package:stakk_savings/core/components/error_banner.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 import 'package:stakk_savings/features/send/presentation/screens/send_p2p_screen.dart';
 import 'package:stakk_savings/features/send/presentation/screens/p2p_history_screen.dart';
+import 'package:stakk_savings/features/send/presentation/widgets/send_skeleton_loader.dart';
 
 /// Send tab: P2P transfers, send to Stellar, request money, recent recipients
 class SendScreen extends StatefulWidget {
@@ -67,10 +70,8 @@ class _SendScreenState extends State<SendScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => SendP2pScreen(
-          balance: _balance?.usdc ?? 0,
-          onSuccess: _load,
-        ),
+        builder: (_) =>
+            SendP2pScreen(balance: _balance?.usdc ?? 0, onSuccess: _load),
       ),
     );
   }
@@ -79,8 +80,11 @@ class _SendScreenState extends State<SendScreen> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xxl)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.xxl),
+        ),
       ),
       builder: (ctx) => _SendToStellarSheet(
         balance: _balance?.usdc ?? 0,
@@ -97,10 +101,11 @@ class _SendScreenState extends State<SendScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: _load,
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const SendSkeletonLoader()
               : SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(24),
@@ -109,16 +114,20 @@ class _SendScreenState extends State<SendScreen> {
                     children: [
                       Text(
                         'Send',
-                        style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
+                        style: AppTheme.header(
+                          context: context,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Balance: \$${(_balance?.usdc ?? 0).toStringAsFixed(2)} USDC',
+                        'Send USDC to friends or withdraw to Stellar',
                         style: AppTheme.caption(context: context, fontSize: 14),
                       ),
                       const SizedBox(height: 24),
                       if (_error != null) ...[
-                        _ErrorBanner(message: _error!),
+                        ErrorBanner(message: _error!, onRetry: _load),
                         const SizedBox(height: 24),
                       ],
                       _QuickActionGrid(
@@ -131,23 +140,45 @@ class _SendScreenState extends State<SendScreen> {
                         children: [
                           Text(
                             'Recent Recipients',
-                            style: AppTheme.title(context: context, fontSize: 18),
+                            style: AppTheme.title(
+                              context: context,
+                              fontSize: 18,
+                            ),
                           ),
                           if (_recentTransfers.isNotEmpty)
                             TextButton(
-                              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const P2pHistoryScreen())),
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const P2pHistoryScreen(),
+                                ),
+                              ),
                               child: const Text('See all'),
                             ),
                         ],
                       ),
                       const SizedBox(height: 16),
                       if (_recentTransfers.isEmpty)
-                        _EmptyRecipients(onSend: _navigateToP2PSend)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: Text(
+                              'No recent recipients.\nTap "Send to Stakk User" above to send.',
+                              textAlign: TextAlign.center,
+                              style: AppTheme.caption(
+                                context: context,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        )
                       else
-                        ..._recentTransfers.map((t) => _RecentRecipientTile(
-                              transfer: t,
-                              onTap: _navigateToP2PSend,
-                            )),
+                        ..._recentTransfers.map(
+                          (t) => _RecentRecipientTile(
+                            transfer: t,
+                            onTap: _navigateToP2PSend,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -171,7 +202,7 @@ class _QuickActionGrid extends StatelessWidget {
       crossAxisCount: 2,
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 1.4,
+      childAspectRatio: 1.25,
       children: [
         _QuickActionCard(
           icon: Icons.person_outline,
@@ -205,22 +236,27 @@ class _QuickActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? AppColors.surfaceVariantDark
-                : Colors.white,
+            color: isDark ? AppColors.surfaceVariantDarkMuted : Colors.white,
             borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(
+              color: isDark
+                  ? AppColors.borderDark.withValues(alpha: 0.4)
+                  : AppColors.borderLight.withValues(alpha: 0.6),
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 8,
+                color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                blurRadius: 12,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -228,12 +264,27 @@ class _QuickActionCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 32, color: AppColors.primary),
-              const SizedBox(height: 12),
-              Text(title, style: AppTheme.body(context: context, fontSize: 15, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              Text(subtitle, style: AppTheme.caption(context: context, fontSize: 12)),
+              Icon(icon, size: 28, color: primary),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                style: AppTheme.body(
+                  context: context,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: AppTheme.caption(context: context, fontSize: 11),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
@@ -250,62 +301,75 @@ class _RecentRecipientTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSent = transfer.direction == 'sent';
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-        child: Icon(isSent ? Icons.arrow_upward : Icons.arrow_downward, color: AppColors.primary),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.surfaceVariantDarkMuted : Colors.white,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(
+                color: isDark
+                    ? AppColors.borderDark.withValues(alpha: 0.4)
+                    : AppColors.borderLight.withValues(alpha: 0.6),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 4,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: isSent ? AppColors.error : AppColors.success,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        transfer.otherDisplay,
+                        style: AppTheme.body(
+                          context: context,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        '\$${transfer.amountUsdc.toStringAsFixed(2)}',
+                        style: AppTheme.caption(context: context, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 12,
+                  color: isDark
+                      ? AppColors.textTertiaryDark
+                      : AppColors.textTertiaryLight,
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
-      title: Text(transfer.otherDisplay, style: AppTheme.body(context: context, fontSize: 15)),
-      subtitle: Text('\$${transfer.amountUsdc.toStringAsFixed(2)}', style: AppTheme.caption(context: context)),
-      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-      onTap: onTap,
-    );
-  }
-}
-
-class _EmptyRecipients extends StatelessWidget {
-  final VoidCallback onSend;
-
-  const _EmptyRecipients({required this.onSend});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariantLight.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.people_outline, size: 48, color: AppColors.textTertiaryLight),
-          const SizedBox(height: 16),
-          Text('No recent recipients', style: AppTheme.body(context: context, fontSize: 14)),
-          const SizedBox(height: 8),
-          TextButton(onPressed: onSend, child: const Text('Send to someone')),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorBanner extends StatelessWidget {
-  final String message;
-
-  const _ErrorBanner({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.errorBackground,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.errorBorder),
-      ),
-      child: Text(message, style: AppTheme.body(fontSize: 14, color: AppColors.error)),
     );
   }
 }
@@ -315,7 +379,11 @@ class _SendToStellarSheet extends StatefulWidget {
   final VoidCallback onClose;
   final VoidCallback onSuccess;
 
-  const _SendToStellarSheet({required this.balance, required this.onClose, required this.onSuccess});
+  const _SendToStellarSheet({
+    required this.balance,
+    required this.onClose,
+    required this.onSuccess,
+  });
 
   @override
   State<_SendToStellarSheet> createState() => _SendToStellarSheetState();
@@ -350,38 +418,53 @@ class _SendToStellarSheetState extends State<_SendToStellarSheet> {
       _error = null;
     });
     try {
-      await context.read<AuthProvider>().withdrawToUSDC(stellarAddress: address, amountUSDC: amount);
+      await context.read<AuthProvider>().withdrawToUSDC(
+        stellarAddress: address,
+        amountUSDC: amount,
+      );
       widget.onSuccess();
     } on ApiException catch (e) {
-      if (mounted) setState(() {
-        _error = e.message;
-        _sending = false;
-      });
+      if (mounted)
+        setState(() {
+          _error = e.message;
+          _sending = false;
+        });
     } catch (_) {
-      if (mounted) setState(() {
-        _error = 'Withdrawal failed';
-        _sending = false;
-      });
+      if (mounted)
+        setState(() {
+          _error = 'Withdrawal failed';
+          _sending = false;
+        });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Send to Stellar Address', style: AppTheme.header(context: context, fontSize: 20)),
+            Text(
+              'Send to Stellar Address',
+              style: AppTheme.header(context: context, fontSize: 20),
+            ),
             const SizedBox(height: 8),
-            Text('Balance: \$${widget.balance.toStringAsFixed(2)} USDC', style: AppTheme.caption(context: context)),
+            Text(
+              'Balance: \$${widget.balance.toStringAsFixed(2)} USDC',
+              style: AppTheme.caption(context: context),
+            ),
             const SizedBox(height: 24),
             TextField(
               controller: _addressController,
-              decoration: const InputDecoration(labelText: 'Stellar address (G...)'),
+              decoration: const InputDecoration(
+                labelText: 'Stellar address (G...)',
+              ),
               maxLines: 2,
             ),
             const SizedBox(height: 16),
@@ -392,17 +475,26 @@ class _SendToStellarSheetState extends State<_SendToStellarSheet> {
             ),
             if (_error != null) ...[
               const SizedBox(height: 16),
-              Text(_error!, style: AppTheme.body(fontSize: 14, color: AppColors.error)),
+              Text(
+                _error!,
+                style: AppTheme.body(fontSize: 14, color: AppColors.error),
+              ),
             ],
             const SizedBox(height: 24),
             Row(
               children: [
-                Expanded(child: OutlinedButton(onPressed: widget.onClose, child: const Text('Cancel'))),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: widget.onClose,
+                    child: const Text('Cancel'),
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: FilledButton(
+                  child: PrimaryButton(
+                    label: 'Send',
                     onPressed: _sending ? null : _send,
-                    child: _sending ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Send'),
+                    isLoading: _sending,
                   ),
                 ),
               ],

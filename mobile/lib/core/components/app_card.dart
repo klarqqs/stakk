@@ -3,7 +3,7 @@ import '../theme/tokens/app_colors.dart';
 import '../theme/tokens/app_radius.dart';
 import '../theme/tokens/app_shadows.dart';
 
-/// Rounded card with soft elevation. Theme-aware.
+/// Rounded card with soft elevation. Theme-aware. 2026 fintech feel.
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -24,8 +24,12 @@ class AppCard extends StatelessWidget {
     return Container(
       padding: padding ?? const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: color ?? (isDark ? AppColors.surfaceVariantDark : AppColors.surfaceLight),
+        color: color ?? (isDark ? AppColors.surfaceVariantDarkMuted : AppColors.surfaceLight),
         borderRadius: BorderRadius.circular(borderRadius ?? AppRadius.xl),
+        border: Border.all(
+          color: isDark ? AppColors.borderDark.withValues(alpha: 0.5) : AppColors.borderLight.withValues(alpha: 0.5),
+          width: 1,
+        ),
         boxShadow: AppShadows.card(context),
       ),
       child: child,
@@ -55,9 +59,9 @@ class AppCardAccent extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.xxl),
         boxShadow: [
           BoxShadow(
-            color: primary.withOpacity(0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            color: primary.withValues(alpha: 0.35),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),

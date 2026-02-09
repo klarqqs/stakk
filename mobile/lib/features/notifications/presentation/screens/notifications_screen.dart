@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
+import 'package:stakk_savings/features/notifications/presentation/widgets/notifications_skeleton_loader.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -68,7 +70,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
-            ? const Center(child: CircularProgressIndicator())
+            ? const NotificationsSkeletonLoader()
             : _error != null
                 ? Center(
                     child: Padding(
@@ -80,7 +82,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           const SizedBox(height: 16),
                           Text(_error!, textAlign: TextAlign.center),
                           const SizedBox(height: 16),
-                          FilledButton(onPressed: _load, child: const Text('Retry')),
+                          SizedBox(width: double.infinity, child: PrimaryButton(label: 'Retry', onPressed: _load)),
                         ],
                       ),
                     ),

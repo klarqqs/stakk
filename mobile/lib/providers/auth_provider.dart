@@ -1,18 +1,63 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:stakk_savings/core/constants/storage_keys.dart';
 import 'package:stakk_savings/features/bills/domain/models/bill_models.dart';
 import '../api/api_client.dart';
 import '../api/auth_service.dart';
+import '../services/fcm_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final ApiClient _api = ApiClient();
   final AuthService _authService = AuthService();
+  final _storage = const FlutterSecureStorage();
 
   User? _user;
   User? get user => _user;
 
   Future<bool> isAuthenticated() => _api.hasToken();
+
+  /// Load user when authenticated (used on app start).
+  /// Tries storage first; if missing, fetches via refresh (handles upgrades).
+  Future<void> loadUserIfAuthenticated() async {
+    if (_user != null) return;
+    if (!await isAuthenticated()) return;
+    try {
+      final json = await _storage.read(key: StorageKeys.userProfile);
+      if (json != null && json.isNotEmpty) {
+        final map = jsonDecode(json) as Map<String, dynamic>;
+        _setUser(User.fromJson(map));
+        return;
+      }
+      final ref = await _api.getRefreshToken();
+      if (ref == null) return;
+      final res = await _authService.refresh(ref);
+      await _api.saveTokens(res.accessToken, res.refreshToken);
+      _setUser(_authUserToUser(res.user));
+    } catch (_) {}
+  }
+
+  void _setUser(User user) {
+    _user = user;
+    _storage.write(
+      key: StorageKeys.userProfile,
+      value: jsonEncode(user.toJson()),
+    );
+    notifyListeners();
+    // Initialize FCM after user is set
+    _initializeFCM();
+  }
+
+  Future<void> _initializeFCM() async {
+    try {
+      await FCMService().initialize();
+    } catch (e) {
+      debugPrint('Failed to initialize FCM: $e');
+    }
+  }
+
+  void _clearUserStorage() => _storage.delete(key: StorageKeys.userProfile);
 
   /// Check if email exists (routes to Login or Sign Up)
   Future<bool> checkEmail(String email) async {
@@ -87,24 +132,21 @@ class AuthProvider extends ChangeNotifier {
   /// Save tokens from AuthTokenResponse (used after login, verify, reset)
   Future<void> saveTokensFromAuthResponse(AuthTokenResponse res) async {
     await _api.saveTokens(res.accessToken, res.refreshToken);
-    _user = _authUserToUser(res.user);
-    notifyListeners();
+    _setUser(_authUserToUser(res.user));
   }
 
   /// Email OTP: verify and sign in
   Future<void> signInWithEmailOtp(String email, String code) async {
     final res = await _authService.verifyOtp(email: email, code: code);
     await _api.saveTokens(res.accessToken, res.refreshToken);
-    _user = _authUserToUser(res.user);
-    notifyListeners();
+    _setUser(_authUserToUser(res.user));
   }
 
   /// Google Sign-In
   Future<void> signInWithGoogle(String idToken) async {
     final res = await _authService.signInWithGoogle(idToken);
     await _api.saveTokens(res.accessToken, res.refreshToken);
-    _user = _authUserToUser(res.user);
-    notifyListeners();
+    _setUser(_authUserToUser(res.user));
   }
 
   /// Apple Sign-In
@@ -121,8 +163,7 @@ class AuthProvider extends ChangeNotifier {
       lastName: lastName,
     );
     await _api.saveTokens(res.accessToken, res.refreshToken);
-    _user = _authUserToUser(res.user);
-    notifyListeners();
+    _setUser(_authUserToUser(res.user));
   }
 
   User _authUserToUser(AuthUser a) => User(
@@ -130,6 +171,8 @@ class AuthProvider extends ChangeNotifier {
         phoneNumber: a.phoneNumber,
         email: a.email,
         stellarAddress: a.stellarAddress,
+        firstName: a.firstName,
+        lastName: a.lastName,
       );
 
   /// Call when API returns session expired – clears state and navigates to login
@@ -150,7 +193,12 @@ class AuthProvider extends ChangeNotifier {
         );
       }
     } catch (_) {}
+    // Clear FCM token
+    try {
+      await FCMService().deleteToken();
+    } catch (_) {}
     await _api.logout();
+    _clearUserStorage();
     await const FlutterSecureStorage().delete(key: StorageKeys.passcode);
     await const FlutterSecureStorage().delete(key: StorageKeys.tempPasscode);
     _user = null;

@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
+import 'package:stakk_savings/core/constants/storage_keys.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
+import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
+import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
+import 'package:stakk_savings/core/utils/snackbar_utils.dart';
+import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/auth_service.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
@@ -88,7 +97,7 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
           onPressed: () => Navigator.of(context).pushReplacementNamed('/'),
         ),
       ),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Column(
@@ -132,24 +141,272 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
               ],
               const SizedBox(height: 24),
               SizedBox(
-                height: 52,
-                child: ElevatedButton(
+                width: double.infinity,
+                child: PrimaryButton(
+                  label: 'Continue',
                   onPressed: _loading ? null : _checkEmail,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4F46E5),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Continue'),
+                  isLoading: _loading,
                 ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(child: Divider(color: Theme.of(context).brightness == Brightness.dark ? AppColors.borderDark : AppColors.borderLight)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'or',
+                      style: AppTheme.caption(context: context, fontSize: 13),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: Theme.of(context).brightness == Brightness.dark ? AppColors.borderDark : AppColors.borderLight)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              _GoogleSignInButton(
+                onPressed: _handleGoogleSignIn,
+                isDark: Theme.of(context).brightness == Brightness.dark,
+              ),
+              const SizedBox(height: 12),
+              _AppleSignInButton(
+                onPressed: _handleAppleSignIn,
+                isDark: Theme.of(context).brightness == Brightness.dark,
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    try {
+      final googleSignIn = GoogleSignIn();
+      final account = await googleSignIn.signIn();
+      if (account == null) return;
+
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      if (idToken == null) {
+        if (mounted) TopSnackbar.error(context, 'Failed to get Google token');
+        return;
+      }
+
+      if (!mounted) return;
+      await context.read<AuthProvider>().signInWithGoogle(idToken);
+      await _handlePostSignIn();
+    } catch (e) {
+      if (mounted) {
+        TopSnackbar.error(context, 'Google sign-in failed: ${e.toString()}');
+      }
+    }
+  }
+
+  Future<void> _handleAppleSignIn() async {
+    try {
+      // Check if Sign in with Apple is available
+      final isAvailable = await SignInWithApple.isAvailable();
+      if (!isAvailable) {
+        if (mounted) {
+          TopSnackbar.error(
+            context,
+            'Sign in with Apple is not available. Please sign in to iCloud on your device.',
+          );
+        }
+        return;
+      }
+
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      if (!mounted) return;
+      
+      if (credential.identityToken == null) {
+        if (mounted) {
+          TopSnackbar.error(context, 'Failed to get Apple identity token');
+        }
+        return;
+      }
+
+      await context.read<AuthProvider>().signInWithApple(
+            identityToken: credential.identityToken!,
+            email: credential.email,
+            firstName: credential.givenName,
+            lastName: credential.familyName,
+          );
+      await _handlePostSignIn();
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (!mounted) return;
+      
+      String errorMessage = 'Apple sign-in failed';
+      switch (e.code) {
+        case AuthorizationErrorCode.canceled:
+          // User canceled, don't show error
+          return;
+        case AuthorizationErrorCode.failed:
+          errorMessage = 'Apple sign-in failed. Please try again.';
+          break;
+        case AuthorizationErrorCode.invalidResponse:
+          errorMessage = 'Invalid response from Apple. Please try again.';
+          break;
+        case AuthorizationErrorCode.notHandled:
+          errorMessage = 'Apple sign-in not configured. Please contact support.';
+          break;
+        case AuthorizationErrorCode.unknown:
+          errorMessage = 'Apple sign-in error. Please ensure:\n'
+              '• You are signed in to iCloud\n'
+              '• Sign in with Apple is enabled in Settings\n'
+              '• You are using a physical device (not simulator)';
+          break;
+        default:
+          errorMessage = 'Apple sign-in error: ${e.code}';
+      }
+      
+      TopSnackbar.error(context, errorMessage);
+    } catch (e) {
+      if (mounted) {
+        TopSnackbar.error(
+          context,
+          'Apple sign-in failed: ${e.toString()}',
+        );
+      }
+    }
+  }
+
+  Future<void> _handlePostSignIn() async {
+    if (!mounted) return;
+    const storage = FlutterSecureStorage();
+    final passcode = await storage.read(key: StorageKeys.passcode);
+    if (!mounted) return;
+    if (passcode != null && passcode.isNotEmpty) {
+      Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (r) => false);
+    } else {
+      Navigator.of(context).pushReplacementNamed('/auth/create-passcode', arguments: true);
+    }
+  }
+}
+
+/// Google Sign-In button compliant with Google branding guidelines.
+/// Uses official Google logo and follows design requirements.
+class _GoogleSignInButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final bool isDark;
+
+  const _GoogleSignInButton({
+    required this.onPressed,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: const Color(0xFF1F1F1F),
+          side: const BorderSide(
+            color: Color(0xFFDADCE0),
+            width: 1,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+          elevation: 0,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/google_logo.png',
+              width: 20,
+              height: 20,
+              errorBuilder: (context, error, stackTrace) {
+                // Fallback if image not found
+                return const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: Icon(Icons.g_mobiledata, size: 20),
+                );
+              },
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Continue with Google',
+              style: AppTheme.body(
+                context: context,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF1F1F1F),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Apple Sign-In button compliant with Apple Human Interface Guidelines.
+/// Uses black background with white text (standard style).
+class _AppleSignInButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final bool isDark;
+
+  const _AppleSignInButton({
+    required this.onPressed,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgPicture.asset(
+              'assets/images/apple_logo.svg',
+              width: 20,
+              height: 20,
+              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+              errorBuilder: (context, error, stackTrace) {
+                // Fallback if SVG not found
+                return const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: Icon(Icons.apple, size: 20, color: Colors.white),
+                );
+              },
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Continue with Apple',
+              style: AppTheme.body(
+                context: context,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
     );

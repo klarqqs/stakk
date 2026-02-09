@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/api/auth_service.dart';
+import 'package:stakk_savings/core/utils/snackbar_utils.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
@@ -110,12 +112,10 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       });
       _startCountdown();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('New code sent')),
-        );
+        showTopSnackBar(context, 'New code sent');
       }
     } on AuthException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      if (mounted) showTopSnackBar(context, e.message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -130,7 +130,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Column(
@@ -190,20 +190,11 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
               ],
               const SizedBox(height: 24),
               SizedBox(
-                height: 52,
-                child: ElevatedButton(
+                width: double.infinity,
+                child: PrimaryButton(
+                  label: 'Verify',
                   onPressed: _loading ? null : _verify,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4F46E5),
-                    foregroundColor: Colors.white,
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Verify'),
+                  isLoading: _loading,
                 ),
               ),
               const SizedBox(height: 16),

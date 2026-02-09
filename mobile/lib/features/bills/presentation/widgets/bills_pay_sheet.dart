@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/core/constants/app_constants.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
+import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
+import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
 import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/features/bills/domain/models/bill_models.dart';
+import 'package:stakk_savings/features/bills/presentation/widgets/bills_pay_products_skeleton.dart';
+import 'package:stakk_savings/core/utils/snackbar_utils.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 /// Formats amount input with commas (e.g. 100000 → 100,000)
@@ -29,6 +34,7 @@ class BillsPaySheet extends StatefulWidget {
   final BillCategoryModel category;
   final BillProviderModel provider;
   final double balance;
+  final double? presetAmount;
   final VoidCallback onClose;
   final VoidCallback onSuccess;
 
@@ -37,6 +43,7 @@ class BillsPaySheet extends StatefulWidget {
     required this.category,
     required this.provider,
     required this.balance,
+    this.presetAmount,
     required this.onClose,
     required this.onSuccess,
   });
@@ -63,6 +70,9 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
     super.initState();
     _loadProducts();
     _amountController.addListener(_onAmountChanged);
+    if (widget.presetAmount != null && widget.presetAmount! >= 1) {
+      _amountController.text = AppConstants.formatNgn(widget.presetAmount!.round());
+    }
   }
 
   @override
@@ -81,6 +91,10 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
         setState(() {
           _products = products;
           _loadingProducts = false;
+          // Airtime: auto-select first product (usually just 1)
+          if (_isAirtime && products.isNotEmpty) {
+            _selectedProduct = products.first;
+          }
         });
       }
     } catch (e) {
@@ -105,6 +119,8 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
   bool get _isPhoneInput =>
       widget.category.code.toUpperCase().contains('AIRTIME') ||
       widget.category.code.toUpperCase().contains('MOBILEDATA');
+
+  bool get _isAirtime => widget.category.code.toUpperCase().contains('AIRTIME');
 
   String get _itemCode {
     if (_selectedProduct != null && _selectedProduct!.productCode.isNotEmpty) {
@@ -195,12 +211,7 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
           );
       if (mounted) {
         widget.onSuccess();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Successfully paid ₦${amount.toStringAsFixed(0)} ${widget.provider.name}'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        showTopSnackBar(context, 'Successfully paid ₦${amount.toStringAsFixed(0)} ${widget.provider.name}');
       }
     } on ApiException catch (e) {
       if (mounted) {
@@ -269,13 +280,35 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
                     hintText: _isPhoneInput ? '08012345678' : 'Enter $_labelName',
                     border: const OutlineInputBorder(),
                     suffixIcon: _validatedName != null
-                        ? Icon(Icons.check_circle, color: const Color(0xFF059669))
-                        : IconButton(
-                            onPressed: _validating ? null : _validate,
-                            icon: _validating
-                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                                : const Icon(Icons.verified_user_outlined),
-                            tooltip: 'Validate',
+                        ? Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                'Verified',
+                                style: AppTheme.body(fontSize: 13, color: const Color(0xFF059669), fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                                    child: _validating
+                                ? const Center(
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 3),
+                                    ),
+                                  )
+                                : TextButton(
+                                    onPressed: _validate,
+                                    style: TextButton.styleFrom(
+                                      minimumSize: Size.zero,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text('Validate'),
+                                  ),
                           ),
                   ),
                   inputFormatters: _isPhoneInput
@@ -288,8 +321,8 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
                 ],
                 const SizedBox(height: 16),
                 if (_loadingProducts)
-                  const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()))
-                else if (_products.isNotEmpty) ...[
+                  const BillsPayProductsSkeleton()
+                else if (_products.isNotEmpty && !_isAirtime) ...[
                   Text(
                     'Select product',
                     style: AppTheme.header(context: context, fontSize: 14, fontWeight: FontWeight.w600),
@@ -310,14 +343,16 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
                   readOnly: _selectedProduct != null && _selectedProduct!.amount > 0,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: InputDecoration(
-                    labelText: _products.isNotEmpty && _selectedProduct == null ? 'Or enter amount (NGN)' : 'Amount (NGN)',
+                    labelText: (_isAirtime || _selectedProduct != null) ? 'Amount (NGN)' : 'Or enter amount (NGN)',
                     hintText: 'e.g. 500',
                     border: const OutlineInputBorder(),
                   ),
                   inputFormatters: [
                     _AmountInputFormatter(),
                   ],
-                  onChanged: (_) => setState(() => _selectedProduct = null),
+                  onChanged: (_) => setState(() {
+                    if (_selectedProduct != null && _selectedProduct!.amount > 0) _selectedProduct = null;
+                  }),
                 ),
                 if (_amount >= 1) ...[
                   const SizedBox(height: 12),
@@ -349,16 +384,10 @@ class _BillsPaySheetState extends State<BillsPaySheet> {
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
+                  child: PrimaryButton(
+                    label: 'Pay with USDC',
                     onPressed: _loading ? null : _pay,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F46E5),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: _loading
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
-                        : const Text('Pay with USDC'),
+                    isLoading: _loading,
                   ),
                 ),
               ],
@@ -379,18 +408,24 @@ class _ProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    final surface = isDark ? AppColors.surfaceVariantDarkMuted : AppColors.surfaceVariantLight;
+    final surfaceSelected = isDark ? primary.withValues(alpha: 0.2) : primary.withValues(alpha: 0.08);
+    final borderColor = isDark ? AppColors.borderDark.withValues(alpha: 0.4) : AppColors.borderLight;
+    final borderSelected = primary;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFFEEF2FF) : const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(8),
+            color: selected ? surfaceSelected : surface,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
             border: Border.all(
-              color: selected ? const Color(0xFF4F46E5) : const Color(0xFFE5E7EB),
+              color: selected ? borderSelected : borderColor,
             ),
           ),
           child: Row(

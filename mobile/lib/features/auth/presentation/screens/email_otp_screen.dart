@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:stakk_savings/core/theme/app_theme.dart';
+import 'package:stakk_savings/core/utils/snackbar_utils.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 import 'package:stakk_savings/api/auth_service.dart';
 
@@ -69,9 +70,7 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
       });
       _startCountdown();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verification code sent to your email')),
-        );
+        showTopSnackBar(context, 'Verification code sent to your email');
       }
     } on AuthException catch (e) {
       setState(() => _error = e.message);
@@ -152,15 +151,11 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
       });
       _startCountdown();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('New code sent')),
-        );
+        showTopSnackBar(context, 'New code sent');
       }
     } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+        showTopSnackBar(context, e.message);
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -185,7 +180,7 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
           },
         ),
       ),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Column(
@@ -219,9 +214,9 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
                   child: ElevatedButton(
                     onPressed: _loading ? null : _requestOtp,
                     child: _loading ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
                     ) : const Text('Continue'),
                   ),
                 ),
@@ -264,9 +259,9 @@ class _EmailOtpScreenState extends State<EmailOtpScreen> {
                   child: ElevatedButton(
                     onPressed: _loading ? null : _verifyOtp,
                     child: _loading ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
                     ) : const Text('Verify'),
                   ),
                 ),

@@ -13,14 +13,15 @@ ThemeData get lightTheme {
       surface: AppColors.surfaceLight,
     ),
     scaffoldBackgroundColor: AppColors.backgroundLight,
-    textTheme: GoogleFonts.interTextTheme(),
-    fontFamily: GoogleFonts.inter().fontFamily,
+    textTheme: GoogleFonts.fustatTextTheme(),
+    fontFamily: GoogleFonts.fustat().fontFamily,
     appBarTheme: AppBarTheme(
       centerTitle: true,
       elevation: 0,
       backgroundColor: Colors.transparent,
+      scrolledUnderElevation: 0,
       foregroundColor: AppColors.textPrimaryLight,
-      titleTextStyle: GoogleFonts.inter(
+      titleTextStyle: GoogleFonts.unbounded(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimaryLight,
@@ -31,25 +32,40 @@ ThemeData get lightTheme {
         elevation: 0,
         padding: const EdgeInsets.symmetric(vertical: 16),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
         ),
+      ),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: AppColors.surfaceLight,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
+      titleTextStyle: GoogleFonts.unbounded(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textPrimaryLight,
+      ),
+      contentTextStyle: TextStyle(
+        fontSize: 14,
+        color: AppColors.textSecondaryLight,
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.surfaceVariantLight,
+      fillColor: AppColors.surfaceLight,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         borderSide: const BorderSide(color: AppColors.borderLight),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         borderSide: const BorderSide(color: AppColors.primary, width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
     ),
   );
 }

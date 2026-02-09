@@ -14,6 +14,8 @@ export interface AuthUser {
   email: string | null;
   stellar_public_key: string;
   created_at: Date;
+  first_name?: string | null;
+  last_name?: string | null;
 }
 
 export async function createUserWithStellar(
@@ -69,7 +71,9 @@ export async function signInResponse(
       phone_number: user.phone_number,
       email: user.email,
       stellar_address: user.stellar_public_key,
-      created_at: user.created_at
+      created_at: user.created_at,
+      first_name: user.first_name ?? null,
+      last_name: user.last_name ?? null
     }
   };
 }

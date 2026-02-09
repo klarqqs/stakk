@@ -109,7 +109,7 @@ export class EmailOtpController {
       await pool.query('UPDATE otp_codes SET verified = true WHERE id = $1', [otp.id]);
 
       let userRow = await pool.query(
-        `SELECT id, phone_number, email, stellar_public_key, created_at
+        `SELECT id, phone_number, email, stellar_public_key, created_at, first_name, last_name
          FROM users WHERE LOWER(email) = $1`,
         [normalizedEmail]
       );

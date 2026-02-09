@@ -58,7 +58,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SafeArea(
+      body: SafeArea(bottom: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Column(
@@ -110,9 +110,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   ),
                   child: _loading
                       ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white),
                         )
                       : const Text('Continue'),
                 ),

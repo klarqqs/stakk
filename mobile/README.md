@@ -54,6 +54,11 @@ flutter build ios --release
 
 - `lib/api/` – API client
 - `lib/config/` – Environment
+- `lib/core/` – Theme, components (buttons, inputs, skeleton, error banner)
+- `lib/features/` – Feature modules (auth, home, bills, send, save, etc.)
 - `lib/providers/` – Auth state
-- `lib/screens/` – Auth, Dashboard
-- `lib/theme/` – Fustat theme
+
+## Documentation
+
+- `../docs/ARCHITECTURE_PROPOSAL.md` – App architecture & auth flow
+- `../docs/STELLAR_INTEGRATION.md` – Stellar network integration (for SCF)

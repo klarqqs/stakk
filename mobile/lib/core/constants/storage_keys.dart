@@ -8,4 +8,5 @@ class StorageKeys {
   static const String passcode = 'passcode';
   static const String tempPasscode = 'temp_passcode';
   static const String themeMode = 'theme_mode';
+  static const String userProfile = 'user_profile';
 }
