@@ -7,7 +7,9 @@ import { authenticateToken } from '../middleware/auth.middleware.ts';
 import {
   otpRequestLimiter,
   otpVerifyLimiter,
-  oauthLimiter
+  oauthLimiter,
+  authLimiter,
+  passwordResetLimiter,
 } from '../middleware/rate-limit.ts';
 import {
   revokeRefreshToken,
@@ -29,9 +31,9 @@ router.post('/check-email', (req, res) => emailAuthController.checkEmail(req, re
 router.post('/register-email', otpRequestLimiter, (req, res) => emailAuthController.registerEmail(req, res));
 router.post('/verify-email', otpVerifyLimiter, (req, res) => emailAuthController.verifyEmailSignup(req, res));
 router.post('/resend-verify-otp', otpRequestLimiter, (req, res) => emailAuthController.resendVerifyOtp(req, res));
-router.post('/login-email', (req, res) => emailAuthController.loginEmail(req, res));
+router.post('/login-email', authLimiter, (req, res) => emailAuthController.loginEmail(req, res));
 router.patch('/profile', authenticateToken, (req, res) => emailAuthController.updateProfile(req, res));
-router.post('/forgot-password', otpRequestLimiter, (req, res) => emailAuthController.forgotPassword(req, res));
+router.post('/forgot-password', passwordResetLimiter, (req, res) => emailAuthController.forgotPassword(req, res));
 router.post('/reset-password', otpVerifyLimiter, (req, res) => emailAuthController.resetPassword(req, res));
 
 // Email OTP (passwordless)

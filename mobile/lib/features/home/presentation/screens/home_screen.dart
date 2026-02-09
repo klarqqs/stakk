@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:stakk_savings/core/components/app_card.dart';
@@ -47,6 +48,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _load() async {
+    if (!mounted) return;
+    
     setState(() {
       _loading = true;
       _error = null;
@@ -73,6 +76,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         auth.goalsGetAll().catchError((_) => <SavingsGoal>[]),
       ]);
+      
+      if (!mounted) return;
+      
       setState(() {
         _balance = results[0] as WalletBalance;
         _transactions = (results[1] as TransactionsResponse).transactions;
@@ -81,18 +87,24 @@ class _HomeScreenState extends State<HomeScreen> {
         _blendEarnings = results[4] as BlendEarningsResponse?;
         _blendApy = results[5] as BlendApyResponse?;
         _goals = results[6] as List<SavingsGoal>;
+        _loading = false;
       });
     } on ApiException catch (e) {
+      if (!mounted) return;
       if (e.message == 'Session expired') {
-        if (mounted)
-          await context.read<AuthProvider>().handleSessionExpired(context);
-      } else if (mounted) {
-        setState(() => _error = e.message);
+        await context.read<AuthProvider>().handleSessionExpired(context);
+      } else {
+        setState(() {
+          _error = e.message;
+          _loading = false;
+        });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Failed to load data');
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _error = 'Failed to load data';
+        _loading = false;
+      });
     }
   }
 
@@ -155,10 +167,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               'Stakk',
                               style: AppTheme.header(
                                 context: context,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 32,
+                                fontWeight: FontWeight.w800,
                               ),
-                            ),
+                            )
+                                .animate()
+                                .fadeIn(duration: 400.ms, delay: 100.ms)
+                                .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 100.ms, curve: Curves.easeOutCubic),
                             InkWell(
                               splashColor: Colors.transparent,
                               highlightColor: Colors.transparent,
@@ -174,11 +189,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                   builder: (_) => const NotificationsScreen(),
                                 ),
                               ).then((_) => _load()),
-                            ),
+                            )
+                                .animate()
+                                .fadeIn(duration: 400.ms, delay: 150.ms)
+                                .scale(begin: const Offset(0.9, 0.9), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 150.ms, curve: Curves.easeOutBack),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 40),
                       if (_error != null) ...[
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -189,9 +207,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (_balance != null) ...[
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: _BalanceCard(balance: _balance!),
+                          child: _BalanceCard(balance: _balance!)
+                              .animate()
+                              .fadeIn(duration: 400.ms, delay: 200.ms)
+                              .slideY(begin: 0.1, end: 0, duration: 500.ms, delay: 200.ms, curve: Curves.easeOutCubic),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: _BlendEarningsCard(
@@ -199,9 +220,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             apy: _blendApy,
                             balance: _balance!.usdc,
                             onRefresh: _load,
-                          ),
+                          )
+                              .animate()
+                              .fadeIn(duration: 400.ms, delay: 300.ms)
+                              .slideY(begin: 0.1, end: 0, duration: 500.ms, delay: 300.ms, curve: Curves.easeOutCubic),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 20),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Row(
@@ -211,20 +235,26 @@ class _HomeScreenState extends State<HomeScreen> {
                                   icon: Icons.add_circle_outline,
                                   label: 'Fund',
                                   onPressed: () => _showFundSheet(context),
-                                ),
+                                )
+                                    .animate()
+                                    .fadeIn(duration: 400.ms, delay: 400.ms)
+                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 400.ms, curve: Curves.easeOut),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: _ActionButton(
                                   icon: Icons.send_outlined,
                                   label: 'Send',
                                   onPressed: () => _showSendSheet(context),
-                                ),
+                                )
+                                    .animate()
+                                    .fadeIn(duration: 400.ms, delay: 450.ms)
+                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 450.ms, curve: Curves.easeOut),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: Row(
@@ -239,9 +269,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                       builder: (_) => const GoalsScreen(),
                                     ),
                                   ),
-                                ),
+                                )
+                                    .animate()
+                                    .fadeIn(duration: 400.ms, delay: 500.ms)
+                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 500.ms, curve: Curves.easeOut),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: _QuickActionChip(
                                   icon: Icons.lock_outline,
@@ -254,9 +287,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                   ),
-                                ),
+                                )
+                                    .animate()
+                                    .fadeIn(duration: 400.ms, delay: 550.ms)
+                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 550.ms, curve: Curves.easeOut),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: _QuickActionChip(
                                   icon: Icons.people_outline,
@@ -267,12 +303,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                       builder: (_) => const ReferralsScreen(),
                                     ),
                                   ),
-                                ),
+                                )
+                                    .animate()
+                                    .fadeIn(duration: 400.ms, delay: 600.ms)
+                                    .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 400.ms, delay: 600.ms, curve: Curves.easeOut),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 40),
                         if (_goals.isNotEmpty) ...[
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -283,9 +322,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   'Savings Goals',
                                   style: AppTheme.title(
                                     context: context,
-                                    fontSize: 18,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
                                   ),
-                                ),
+                                )
+                                    .animate()
+                                    .fadeIn(duration: 400.ms, delay: 700.ms)
+                                    .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 700.ms, curve: Curves.easeOutCubic),
                                 InkWell(
                                   splashColor: Colors.transparent,
                                   highlightColor: Colors.transparent,
@@ -295,12 +338,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                       builder: (_) => const GoalsScreen(),
                                     ),
                                   ),
-                                  child: const Text('See all'),
-                                ),
+                                  child: Text(
+                                    'See all',
+                                    style: AppTheme.body(
+                                      context: context,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Theme.of(context).brightness == Brightness.dark
+                                          ? AppColors.primaryDark
+                                          : AppColors.primary,
+                                    ),
+                                  ),
+                                )
+                                    .animate()
+                                    .fadeIn(duration: 400.ms, delay: 750.ms),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
                           SizedBox(
                             height: 120,
                             child: ListView.separated(
@@ -340,12 +395,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   children: [
                                     Text(
                                       'Recent P2P',
-                                      style: AppTheme.header(
+                                      style: AppTheme.title(
                                         context: context,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
                                       ),
-                                    ),
+                                    )
+                                        .animate()
+                                        .fadeIn(duration: 400.ms, delay: 800.ms)
+                                        .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 800.ms, curve: Curves.easeOutCubic),
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.of(context).push(
@@ -354,11 +412,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   const P2pHistoryScreen(),
                                             ),
                                           ),
-                                      child: const Text('See all'),
-                                    ),
+                                      child: Text(
+                                        'See all',
+                                        style: AppTheme.body(
+                                          context: context,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context).brightness == Brightness.dark
+                                              ? AppColors.primaryDark
+                                              : AppColors.primary,
+                                        ),
+                                      ),
+                                    )
+                                        .animate()
+                                        .fadeIn(duration: 400.ms, delay: 850.ms),
                                   ],
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 16),
                                 ..._p2pTransfers
                                     .take(5)
                                     .map((t) => _P2pTransferRow(transfer: t)),
@@ -377,13 +447,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Text(
                                 'Recent Transactions',
-                                style: AppTheme.header(
+                                style: AppTheme.title(
                                   context: context,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                              ),
-                              const SizedBox(height: 12),
+                              )
+                                  .animate()
+                                  .fadeIn(duration: 400.ms, delay: 900.ms)
+                                  .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: 900.ms, curve: Curves.easeOutCubic),
+                              const SizedBox(height: 16),
                               if (_transactions.isEmpty)
                                 SizedBox(
                                   width: double.infinity,
@@ -637,7 +710,11 @@ class _BlendSheetState extends State<_BlendSheet> {
     super.dispose();
   }
 
-  void _onAmountChanged() => setState(() => _error = null);
+  void _onAmountChanged() {
+    if (_error != null && mounted) {
+      setState(() => _error = null);
+    }
+  }
 
   double get _amount => double.tryParse(_amountController.text) ?? 0;
   bool get _isAmountValid => _amount > 0 && _amount <= widget.balance;
@@ -1433,7 +1510,10 @@ class _WithdrawToBankSheetState extends State<_WithdrawToBankSheet> {
   String? _error;
   late BankAccountValidationController _validationController;
 
-  void _onAmountChanged() => setState(() {});
+  void _onAmountChanged() {
+    // Only rebuild if needed - this is called on text field changes
+    // The text field itself handles its own state
+  }
 
   void _onAccountOrBankChanged() {
     setState(() => _error = null);
@@ -2561,28 +2641,55 @@ class _ActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    final primaryGradientEnd = isDark ? AppColors.primaryDark : AppColors.primaryGradientEnd;
+    
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(AppRadius.full),
+        borderRadius: BorderRadius.circular(AppRadius.xl),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
-            border: Border.all(color: primary.withValues(alpha: 0.5)),
-            borderRadius: BorderRadius.circular(AppRadius.full),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                primary.withValues(alpha: 0.1),
+                primaryGradientEnd.withValues(alpha: 0.05),
+              ],
+            ),
+            border: Border.all(color: primary.withValues(alpha: 0.3), width: 1.5),
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withValues(alpha: 0.1),
+                blurRadius: 12,
+                spreadRadius: 0,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: primary),
-              const SizedBox(width: 8),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(icon, size: 18, color: primary),
+              ),
+              const SizedBox(width: 12),
               Text(
                 label,
                 style: AppTheme.body(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  context: context,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                   color: primary,
                 ),
               ),
@@ -2609,30 +2716,57 @@ class _QuickActionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.full),
+        borderRadius: BorderRadius.circular(AppRadius.xl),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            border: Border.all(color: primary.withValues(alpha: 0.5)),
-            borderRadius: BorderRadius.circular(AppRadius.full),
+            color: primary.withValues(alpha: 0.08),
+            border: Border.all(color: primary.withValues(alpha: 0.25), width: 1.5),
+            borderRadius: BorderRadius.circular(AppRadius.xl),
+            boxShadow: [
+              BoxShadow(
+                color: primary.withValues(alpha: 0.08),
+                blurRadius: 8,
+                spreadRadius: 0,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: primary),
-              const SizedBox(width: 8),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      primary.withValues(alpha: 0.2),
+                      primary.withValues(alpha: 0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
+                child: Icon(icon, size: 18, color: primary),
+              ),
+              const SizedBox(height: 8),
               Text(
                 label,
                 style: AppTheme.body(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  context: context,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                   color: primary,
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),

@@ -43,7 +43,9 @@
     "paystack": "^2.0.1",
     "pg": "^8.18.0",
     "resend": "^6.9.1",
-    "stellar-sdk": "^13.3.0"
+    "stellar-sdk": "^13.3.0",
+    "@sentry/node": "^8.0.0",
+    "@sentry/profiling-node": "^8.0.0"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

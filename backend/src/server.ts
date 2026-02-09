@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { initializeSentry, Sentry } from './config/sentry.ts';
 import authRoutes from './routes/auth.routes.ts';
 import walletRoutes from './routes/wallet.routes.ts';
 import webhookRoutes from './routes/webhook.routes.ts';
@@ -14,15 +15,81 @@ import lockedRoutes from './routes/locked.routes.ts';
 import referralRoutes from './routes/referral.routes.ts';
 import transparencyRoutes from './routes/transparency.routes.ts';
 import notificationRoutes from './routes/notification.routes.ts';
+import appRoutes from './routes/app.routes.ts';
+import { validateEnvironment, getCorsOrigins, checkForPlaceholderSecrets } from './config/env-validation.ts';
 
 dotenv.config();
+
+// Initialize Sentry BEFORE anything else
+initializeSentry();
+
+// Validate environment variables on startup
+try {
+  validateEnvironment();
+  checkForPlaceholderSecrets();
+} catch (error) {
+  console.error('Environment validation failed:', error);
+  process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Sentry request handler (must be first)
+app.use(Sentry.Handlers.requestHandler());
+app.use(Sentry.Handlers.tracingHandler());
+
+// CORS configuration
+const corsOrigins = getCorsOrigins();
+const isProduction = process.env.NODE_ENV === 'production';
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // In production, only allow whitelisted origins
+    if (isProduction) {
+      if (corsOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`⚠️  Blocked CORS request from: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    } else {
+      // In development, allow all origins
+      callback(null, true);
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Security headers
+app.use((req, res, next) => {
+  // Prevent clickjacking
+  res.setHeader('X-Frame-Options', 'DENY');
+  // Prevent MIME type sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  // XSS protection
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  // Referrer policy
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  if (isProduction) {
+    // Strict transport security (HTTPS only)
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  
+  next();
+});
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use('/webhook', webhookRoutes);
@@ -38,6 +105,37 @@ app.use('/api/locked', lockedRoutes);
 app.use('/api/referrals', referralRoutes);
 app.use('/api/transparency', transparencyRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/app', appRoutes);
+
+// Sentry error handler (must be before other error handlers)
+app.use(Sentry.Handlers.errorHandler());
+
+// Custom error handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Capture error in Sentry
+  Sentry.captureException(err);
+  
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  });
+});
+
+// Sentry error handler (must be before other error handlers)
+app.use(Sentry.Handlers.errorHandler());
+
+// Custom error handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Capture error in Sentry
+  Sentry.captureException(err);
+  
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  });
+});
 
 // Health check (Railway and other platforms)
 app.get('/health', (req, res) => {
@@ -60,7 +158,10 @@ app.get('/', (req, res) => res.redirect('/health'));
 
 // Start server - bind to 0.0.0.0 so Railway can reach it from outside the container
 app.listen(Number(PORT), '0.0.0.0', async () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📦 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 CORS origins: ${corsOrigins.join(', ')}`);
+  
   // Log outbound IP for Flutterwave whitelist (Railway, Render, etc.)
   try {
     const r = await fetch('https://api.ipify.org?format=json');
@@ -71,10 +172,16 @@ app.listen(Number(PORT), '0.0.0.0', async () => {
   } catch {
     // ignore
   }
+  
+  // Start monitoring services
   if (process.env.STELLAR_NETWORK === 'mainnet') {
     import('./services/stellar-monitor.service.ts').then((m) => m.default.startMonitoring());
   }
+  
+  // Email service validation
   if (process.env.EMAIL_SERVICE === 'resend' && !process.env.RESEND_API_KEY?.trim()) {
     console.warn('⚠️  EMAIL_SERVICE=resend but RESEND_API_KEY is missing. Signup emails will fail.');
   }
+  
+  console.log('✅ Server initialized successfully');
 });

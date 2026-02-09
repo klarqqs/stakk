@@ -7,6 +7,8 @@ import 'package:stakk_savings/features/bills/domain/models/bill_models.dart';
 import '../api/api_client.dart';
 import '../api/auth_service.dart';
 import '../services/fcm_service.dart';
+import '../services/analytics_service.dart';
+import '../services/error_tracking_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final ApiClient _api = ApiClient();
@@ -39,14 +41,35 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _setUser(User user) {
+    // Only update if user actually changed
+    if (_user?.id == user.id && _user?.email == user.email) {
+      return; // Skip unnecessary updates
+    }
+    
     _user = user;
     _storage.write(
       key: StorageKeys.userProfile,
       value: jsonEncode(user.toJson()),
     );
-    notifyListeners();
+    
+    // Set user context for error tracking and analytics
+    ErrorTrackingService().setUser(
+      id: user.id.toString(),
+      email: user.email,
+      username: '${user.firstName} ${user.lastName}'.trim(),
+    );
+    
+    AnalyticsService().setUserProperty(
+      userId: user.id.toString(),
+      email: user.email,
+      name: '${user.firstName} ${user.lastName}'.trim(),
+    );
+    
     // Initialize FCM after user is set
     _initializeFCM();
+    
+    // Notify listeners after all async operations are set up
+    notifyListeners();
   }
 
   Future<void> _initializeFCM() async {
@@ -54,6 +77,7 @@ class AuthProvider extends ChangeNotifier {
       await FCMService().initialize();
     } catch (e) {
       debugPrint('Failed to initialize FCM: $e');
+      ErrorTrackingService().captureError(e, context: {'service': 'FCM'});
     }
   }
 
@@ -72,12 +96,24 @@ class AuthProvider extends ChangeNotifier {
     String? firstName,
     String? lastName,
   }) async {
-    await _authService.registerEmail(
-      email: email,
-      password: password,
-      firstName: firstName,
-      lastName: lastName,
-    );
+    try {
+      AnalyticsService().addBreadcrumb(
+        message: 'Email registration initiated',
+        category: 'auth',
+        data: {'email': email},
+      );
+      await _authService.registerEmail(
+        email: email,
+        password: password,
+        firstName: firstName,
+        lastName: lastName,
+      );
+      AnalyticsService().logSignUp(method: 'email');
+    } catch (e) {
+      ErrorTrackingService().captureError(e, context: {'method': 'email_signup'});
+      AnalyticsService().logError(error: e.toString(), screen: 'signup');
+      rethrow;
+    }
   }
 
   /// Verify email OTP after signup
@@ -98,7 +134,19 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    return _authService.loginEmail(email: email, password: password);
+    try {
+      AnalyticsService().addBreadcrumb(
+        message: 'Email login initiated',
+        category: 'auth',
+      );
+      final res = await _authService.loginEmail(email: email, password: password);
+      AnalyticsService().logLogin(method: 'email');
+      return res;
+    } catch (e) {
+      ErrorTrackingService().captureError(e, context: {'method': 'email_login'});
+      AnalyticsService().logError(error: e.toString(), screen: 'login');
+      rethrow;
+    }
   }
 
   /// Update profile (phone)
@@ -144,9 +192,20 @@ class AuthProvider extends ChangeNotifier {
 
   /// Google Sign-In
   Future<void> signInWithGoogle(String idToken) async {
-    final res = await _authService.signInWithGoogle(idToken);
-    await _api.saveTokens(res.accessToken, res.refreshToken);
-    _setUser(_authUserToUser(res.user));
+    try {
+      AnalyticsService().addBreadcrumb(
+        message: 'Google sign-in initiated',
+        category: 'auth',
+      );
+      final res = await _authService.signInWithGoogle(idToken);
+      await _api.saveTokens(res.accessToken, res.refreshToken);
+      _setUser(_authUserToUser(res.user));
+      AnalyticsService().logLogin(method: 'google');
+    } catch (e) {
+      ErrorTrackingService().captureError(e, context: {'method': 'google_signin'});
+      AnalyticsService().logError(error: e.toString(), screen: 'login');
+      rethrow;
+    }
   }
 
   /// Apple Sign-In
@@ -156,14 +215,25 @@ class AuthProvider extends ChangeNotifier {
     String? firstName,
     String? lastName,
   }) async {
-    final res = await _authService.signInWithApple(
-      identityToken: identityToken,
-      email: email,
-      firstName: firstName,
-      lastName: lastName,
-    );
-    await _api.saveTokens(res.accessToken, res.refreshToken);
-    _setUser(_authUserToUser(res.user));
+    try {
+      AnalyticsService().addBreadcrumb(
+        message: 'Apple sign-in initiated',
+        category: 'auth',
+      );
+      final res = await _authService.signInWithApple(
+        identityToken: identityToken,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+      );
+      await _api.saveTokens(res.accessToken, res.refreshToken);
+      _setUser(_authUserToUser(res.user));
+      AnalyticsService().logLogin(method: 'apple');
+    } catch (e) {
+      ErrorTrackingService().captureError(e, context: {'method': 'apple_signin'});
+      AnalyticsService().logError(error: e.toString(), screen: 'login');
+      rethrow;
+    }
   }
 
   User _authUserToUser(AuthUser a) => User(
@@ -177,9 +247,24 @@ class AuthProvider extends ChangeNotifier {
 
   /// Call when API returns session expired – clears state and navigates to login
   Future<void> handleSessionExpired(BuildContext context) async {
-    await logout();
-    if (context.mounted) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (r) => false);
+    try {
+      ErrorTrackingService().captureMessage(
+        'Session expired - handling logout',
+        context: {'screen': 'auth_provider'},
+      );
+      await logout();
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (r) => false);
+      }
+    } catch (e) {
+      ErrorTrackingService().captureError(
+        e,
+        context: {'action': 'handleSessionExpired'},
+      );
+      // Still navigate to login even if logout fails
+      if (context.mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (r) => false);
+      }
     }
   }
 
@@ -197,6 +282,11 @@ class AuthProvider extends ChangeNotifier {
     try {
       await FCMService().deleteToken();
     } catch (_) {}
+    
+    // Clear analytics and error tracking user context
+    AnalyticsService().setUserProperty();
+    ErrorTrackingService().clearUser();
+    
     await _api.logout();
     _clearUserStorage();
     await const FlutterSecureStorage().delete(key: StorageKeys.passcode);

@@ -3,6 +3,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/env.dart';
+import '../core/utils/error_message_formatter.dart';
 
 /// Auth service for email OTP, Google, and Apple sign-in.
 /// Uses access + refresh tokens from new auth endpoints.
@@ -135,13 +136,7 @@ class AuthService {
     } on AuthException {
       rethrow;
     } catch (e) {
-      throw AuthException(
-        e.toString().contains('SocketException') || e.toString().contains('Connection refused')
-            ? 'Cannot reach server. Check internet and backend URL.'
-            : e.toString().contains('Timeout')
-                ? 'Connection timed out. Is the backend running?'
-                : 'Check email failed: ${e.toString().split('\n').first}',
-      );
+      throw AuthException(ErrorMessageFormatter.format(e));
     }
   }
 
@@ -177,13 +172,7 @@ class AuthService {
     } on AuthException {
       rethrow;
     } catch (e) {
-      throw AuthException(
-        e.toString().contains('SocketException') || e.toString().contains('Connection refused')
-            ? 'Cannot reach server. Check your connection.'
-            : e.toString().contains('Timeout')
-                ? 'Connection timed out. Please try again.'
-                : 'Registration failed: ${e.toString().split('\n').first}',
-      );
+      throw AuthException(ErrorMessageFormatter.format(e));
     }
   }
 

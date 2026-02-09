@@ -9,6 +9,7 @@ import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
 import 'package:stakk_savings/core/utils/snackbar_utils.dart';
+import 'package:stakk_savings/core/utils/error_message_formatter.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/auth_service.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
@@ -24,6 +25,8 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
   final _emailController = TextEditingController();
   bool _loading = false;
   String? _error;
+  bool _isGoogleLoading = false;
+  bool _isAppleLoading = false;
 
   @override
   void didChangeDependencies() {
@@ -75,17 +78,7 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
       RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(s);
 
   String _formatError(Object e) {
-    final msg = e.toString();
-    if (msg.contains('SocketException') || msg.contains('Connection refused')) {
-      return 'Cannot reach server. Check your connection and that the backend is running.';
-    }
-    if (msg.contains('Connection timed out') || msg.contains('TimeoutException')) {
-      return 'Connection timed out. The server may be slow or unreachable.';
-    }
-    if (msg.contains('FormatException') || msg.contains('json')) {
-      return 'Invalid server response. The backend may have returned an error.';
-    }
-    return msg.length > 80 ? 'Network or server error. Try again.' : msg;
+    return ErrorMessageFormatter.format(e);
   }
 
   @override
@@ -203,11 +196,15 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
   }
 
   Future<void> _handleAppleSignIn() async {
+    if (_isAppleLoading) return;
+    
+    setState(() => _isAppleLoading = true);
     try {
       // Check if Sign in with Apple is available
       final isAvailable = await SignInWithApple.isAvailable();
       if (!isAvailable) {
         if (mounted) {
+          setState(() => _isAppleLoading = false);
           TopSnackbar.error(
             context,
             'Sign in with Apple is not available. Please sign in to iCloud on your device.',
@@ -227,6 +224,7 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
       
       if (credential.identityToken == null) {
         if (mounted) {
+          setState(() => _isAppleLoading = false);
           TopSnackbar.error(context, 'Failed to get Apple identity token');
         }
         return;
@@ -238,15 +236,19 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
             firstName: credential.givenName,
             lastName: credential.familyName,
           );
+      if (!mounted) return;
       await _handlePostSignIn();
     } on SignInWithAppleAuthorizationException catch (e) {
       if (!mounted) return;
       
+      // User canceled, don't show error
+      if (e.code == AuthorizationErrorCode.canceled) {
+        if (mounted) setState(() => _isAppleLoading = false);
+        return;
+      }
+
       String errorMessage = 'Apple sign-in failed';
       switch (e.code) {
-        case AuthorizationErrorCode.canceled:
-          // User canceled, don't show error
-          return;
         case AuthorizationErrorCode.failed:
           errorMessage = 'Apple sign-in failed. Please try again.';
           break;
@@ -266,13 +268,14 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
           errorMessage = 'Apple sign-in error: ${e.code}';
       }
       
-      TopSnackbar.error(context, errorMessage);
+      if (mounted) {
+        setState(() => _isAppleLoading = false);
+        TopSnackbar.error(context, errorMessage);
+      }
     } catch (e) {
       if (mounted) {
-        TopSnackbar.error(
-          context,
-          'Apple sign-in failed: ${e.toString()}',
-        );
+        setState(() => _isAppleLoading = false);
+        TopSnackbar.error(context, ErrorMessageFormatter.format(e));
       }
     }
   }
@@ -295,10 +298,12 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
 class _GoogleSignInButton extends StatelessWidget {
   final VoidCallback onPressed;
   final bool isDark;
+  final bool isLoading;
 
   const _GoogleSignInButton({
     required this.onPressed,
     required this.isDark,
+    this.isLoading = false,
   });
 
   @override

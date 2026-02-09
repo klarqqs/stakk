@@ -9,6 +9,7 @@ import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
 import 'package:stakk_savings/features/goals/presentation/widgets/goals_skeleton_loader.dart';
 import 'package:stakk_savings/features/goals/presentation/widgets/goal_detail_skeleton_loader.dart';
 import 'package:stakk_savings/core/utils/snackbar_utils.dart';
+import 'package:stakk_savings/core/utils/error_message_formatter.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
 
 class GoalsScreen extends StatefulWidget {
@@ -62,17 +63,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
   }
 
   String _formatError(Object e) {
-    final msg = e.toString();
-    if (msg.contains('SocketException') || msg.contains('Connection refused')) {
-      return 'No internet. Check your connection and retry.';
-    }
-    if (msg.contains('TimeoutException') || msg.contains('timed out')) {
-      return 'Request timed out. Please retry.';
-    }
-    if (msg.contains('FormatException') || msg.contains('type')) {
-      return 'Invalid response from server. Please try again later.';
-    }
-    return 'Failed to load goals. Please retry.';
+    return ErrorMessageFormatter.format(e);
   }
 
   void _showCreateGoal() {

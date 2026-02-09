@@ -4,6 +4,9 @@ import 'package:http/http.dart' as http;
 
 import '../config/env.dart';
 import '../features/bills/domain/models/bill_models.dart';
+import '../core/utils/offline_handler.dart';
+import '../core/utils/error_message_formatter.dart';
+import '../services/error_tracking_service.dart';
 import 'auth_service.dart';
 
 class ApiClient {
@@ -71,14 +74,34 @@ class ApiClient {
   Future<http.Response> _requestWithRefresh(
     Future<http.Response> Function() fn,
   ) async {
-    var res = await fn();
-    if (_isAuthError(res.statusCode)) {
-      final newAccess = await _tryRefresh();
-      if (newAccess != null) {
-        res = await fn();
-      }
+    // Check connectivity before making request
+    final isOnline = await OfflineHandler().checkConnectivity();
+    if (!isOnline) {
+      throw ApiException(ErrorMessageFormatter.format('No internet connection'));
     }
-    return res;
+
+    try {
+      var res = await fn();
+      if (_isAuthError(res.statusCode)) {
+        final newAccess = await _tryRefresh();
+        if (newAccess != null) {
+          res = await fn();
+        }
+      }
+      return res;
+    } catch (e) {
+      // Track network errors
+      ErrorTrackingService().captureError(
+        e,
+        context: {'endpoint': 'api_request'},
+      );
+      
+      // Provide user-friendly error message
+      if (e is ApiException) {
+        rethrow;
+      }
+      throw ApiException(ErrorMessageFormatter.format(e));
+    }
   }
 
   Future<WalletBalance> getBalance() async {
@@ -129,7 +152,10 @@ class ApiClient {
     }
     if (res.statusCode != 200) {
       final body = jsonDecode(res.body) as Map<String, dynamic>?;
-      throw ApiException(body?['error']?.toString() ?? 'Failed to fetch virtual account');
+      final errorMsg = body?['error']?.toString();
+      throw ApiException(errorMsg != null 
+          ? ErrorMessageFormatter.formatApiException(errorMsg)
+          : 'Unable to fetch virtual account. Please try again.');
     }
     return VirtualAccount.fromJson(
       jsonDecode(res.body) as Map<String, dynamic>,

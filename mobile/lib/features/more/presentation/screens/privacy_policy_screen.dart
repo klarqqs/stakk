@@ -39,7 +39,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildEffectiveDate(context, 'Effective Date: February 7, 2025'),
+                    _buildEffectiveDate(context, 'Effective Date: February 7, 2026'),
                     const SizedBox(height: 24),
                     _buildSection(context, '1. Introduction', [
                       'Stakk ("we," "our," or "us") is committed to protecting your privacy. This Privacy Notice explains how we collect, use, share, and safeguard your personal data when you use our Services.',

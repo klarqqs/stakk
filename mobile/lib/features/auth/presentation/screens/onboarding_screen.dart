@@ -13,6 +13,7 @@ import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
 import 'package:stakk_savings/core/utils/snackbar_utils.dart';
+import 'package:stakk_savings/core/utils/error_message_formatter.dart';
 import 'package:stakk_savings/features/auth/presentation/screens/onboarding/onboarding_page_indicators.dart';
 import 'package:stakk_savings/features/auth/presentation/screens/onboarding/onboarding_page_widget.dart';
 import 'package:stakk_savings/features/auth/presentation/screens/onboarding/onboarding_steps.dart';
@@ -32,6 +33,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   late int _page;
   late int _totalSteps;
   Timer? _autoSwipeTimer;
+  bool _isGoogleLoading = false;
+  bool _isAppleLoading = false;
 
   @override
   void initState() {
@@ -72,34 +75,49 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (_isGoogleLoading) return;
+    
+    setState(() => _isGoogleLoading = true);
     try {
       final googleSignIn = GoogleSignIn();
       final account = await googleSignIn.signIn();
-      if (account == null) return;
+      if (account == null) {
+        if (mounted) setState(() => _isGoogleLoading = false);
+        return;
+      }
 
       final auth = await account.authentication;
       final idToken = auth.idToken;
       if (idToken == null) {
-        if (mounted) TopSnackbar.error(context, 'Failed to get Google token');
+        if (mounted) {
+          setState(() => _isGoogleLoading = false);
+          TopSnackbar.error(context, 'Failed to get Google token');
+        }
         return;
       }
 
       if (!mounted) return;
       await context.read<AuthProvider>().signInWithGoogle(idToken);
+      if (!mounted) return;
       await _handlePostSignIn();
     } catch (e) {
       if (mounted) {
-        TopSnackbar.error(context, 'Google sign-in failed: ${e.toString()}');
+        setState(() => _isGoogleLoading = false);
+        TopSnackbar.error(context, ErrorMessageFormatter.format(e));
       }
     }
   }
 
   Future<void> _handleAppleSignIn() async {
+    if (_isAppleLoading) return;
+    
+    setState(() => _isAppleLoading = true);
     try {
       // Check if Sign in with Apple is available
       final isAvailable = await SignInWithApple.isAvailable();
       if (!isAvailable) {
         if (mounted) {
+          setState(() => _isAppleLoading = false);
           TopSnackbar.error(
             context,
             'Sign in with Apple is not available. Please sign in to iCloud on your device.',
@@ -116,29 +134,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
 
       if (!mounted) return;
-      
+
       if (credential.identityToken == null) {
         if (mounted) {
+          setState(() => _isAppleLoading = false);
           TopSnackbar.error(context, 'Failed to get Apple identity token');
         }
         return;
       }
 
       await context.read<AuthProvider>().signInWithApple(
-            identityToken: credential.identityToken!,
-            email: credential.email,
-            firstName: credential.givenName,
-            lastName: credential.familyName,
-          );
+        identityToken: credential.identityToken!,
+        email: credential.email,
+        firstName: credential.givenName,
+        lastName: credential.familyName,
+      );
+      if (!mounted) return;
       await _handlePostSignIn();
     } on SignInWithAppleAuthorizationException catch (e) {
       if (!mounted) return;
-      
+
+      // User canceled, don't show error
+      if (e.code == AuthorizationErrorCode.canceled) {
+        if (mounted) setState(() => _isAppleLoading = false);
+        return;
+      }
+
       String errorMessage = 'Apple sign-in failed';
       switch (e.code) {
-        case AuthorizationErrorCode.canceled:
-          // User canceled, don't show error
-          return;
         case AuthorizationErrorCode.failed:
           errorMessage = 'Apple sign-in failed. Please try again.';
           break;
@@ -146,10 +169,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           errorMessage = 'Invalid response from Apple. Please try again.';
           break;
         case AuthorizationErrorCode.notHandled:
-          errorMessage = 'Apple sign-in not configured. Please contact support.';
+          errorMessage =
+              'Apple sign-in not configured. Please contact support.';
           break;
         case AuthorizationErrorCode.unknown:
-          errorMessage = 'Apple sign-in error. Please ensure:\n'
+          errorMessage =
+              'Apple sign-in error. Please ensure:\n'
               '• You are signed in to iCloud\n'
               '• Sign in with Apple is enabled in Settings\n'
               '• You are using a physical device (not simulator)';
@@ -157,14 +182,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         default:
           errorMessage = 'Apple sign-in error: ${e.code}';
       }
-      
-      TopSnackbar.error(context, errorMessage);
+
+      if (mounted) {
+        setState(() => _isAppleLoading = false);
+        TopSnackbar.error(context, errorMessage);
+      }
     } catch (e) {
       if (mounted) {
-        TopSnackbar.error(
-          context,
-          'Apple sign-in failed: ${e.toString()}',
-        );
+        setState(() => _isAppleLoading = false);
+        TopSnackbar.error(context, ErrorMessageFormatter.format(e));
       }
     }
   }
@@ -176,7 +202,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (passcode != null && passcode.isNotEmpty) {
       Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (r) => false);
     } else {
-      Navigator.of(context).pushReplacementNamed('/auth/create-passcode', arguments: true);
+      Navigator.of(
+        context,
+      ).pushReplacementNamed('/auth/create-passcode', arguments: true);
     }
   }
 
@@ -226,84 +254,125 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
                 child: Column(
                   children: [
-                    OnboardingPageIndicators(page: _page, total: _totalSteps)
-                        .animate()
-                        .fadeIn(duration: 300.ms, delay: 200.ms),
+                    OnboardingPageIndicators(
+                      page: _page,
+                      total: _totalSteps,
+                    ).animate().fadeIn(duration: 400.ms, delay: 300.ms),
                     const SizedBox(height: 40),
                     GlassCard(
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-                      blur: 16,
-                      child: Column(
-                        children: [
-                          _GoogleSignInButton(
-                            onPressed: _handleGoogleSignIn,
-                            isDark: isDark,
-                          )
-                              .animate()
-                              .fadeIn(duration: 400.ms, delay: 400.ms)
-                              .slideY(begin: 0.3, end: 0, duration: 500.ms, delay: 400.ms, curve: Curves.easeOutCubic),
-                          const SizedBox(height: 14),
-                          _AppleSignInButton(
-                            onPressed: _handleAppleSignIn,
-                            isDark: isDark,
-                          )
-                              .animate()
-                              .fadeIn(duration: 400.ms, delay: 500.ms)
-                              .slideY(begin: 0.3, end: 0, duration: 500.ms, delay: 500.ms, curve: Curves.easeOutCubic),
-                          const SizedBox(height: 24),
-                          Row(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 28,
+                          ),
+                          blur: 16,
+                          child: Column(
                             children: [
-                              Expanded(
-                                child: Divider(
-                                  color: isDark
-                                      ? AppColors.borderDark.withValues(alpha: 0.5)
-                                      : AppColors.borderLight.withValues(alpha: 0.5),
-                                  thickness: 1,
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text(
-                                  'or',
-                                  style: AppTheme.caption(
-                                    context: context,
-                                    fontSize: 14,
-                                    color: isDark
-                                        ? AppColors.textTertiaryDark
-                                        : AppColors.textTertiaryLight,
-                                    fontWeight: FontWeight.w500,
+                              _GoogleSignInButton(
+                                    onPressed: _handleGoogleSignIn,
+                                    isDark: isDark,
+                                    isLoading: _isGoogleLoading,
+                                  )
+                                  .animate()
+                                  .fadeIn(duration: 400.ms, delay: 400.ms)
+                                  .slideY(
+                                    begin: 0.3,
+                                    end: 0,
+                                    duration: 500.ms,
+                                    delay: 400.ms,
+                                    curve: Curves.easeOutCubic,
                                   ),
-                                ),
+                              const SizedBox(height: 14),
+                              _AppleSignInButton(
+                                    onPressed: _handleAppleSignIn,
+                                    isDark: isDark,
+                                    isLoading: _isAppleLoading,
+                                  )
+                                  .animate()
+                                  .fadeIn(duration: 400.ms, delay: 500.ms)
+                                  .slideY(
+                                    begin: 0.3,
+                                    end: 0,
+                                    duration: 500.ms,
+                                    delay: 500.ms,
+                                    curve: Curves.easeOutCubic,
+                                  ),
+                              const SizedBox(height: 24),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Divider(
+                                      color: isDark
+                                          ? AppColors.borderDark.withValues(
+                                              alpha: 0.5,
+                                            )
+                                          : AppColors.borderLight.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                      thickness: 1,
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                    ),
+                                    child: Text(
+                                      'or',
+                                      style: AppTheme.caption(
+                                        context: context,
+                                        fontSize: 14,
+                                        color: isDark
+                                            ? AppColors.textTertiaryDark
+                                            : AppColors.textTertiaryLight,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: Divider(
+                                      color: isDark
+                                          ? AppColors.borderDark.withValues(
+                                              alpha: 0.5,
+                                            )
+                                          : AppColors.borderLight.withValues(
+                                              alpha: 0.5,
+                                            ),
+                                      thickness: 1,
+                                    ),
+                                  ),
+                                ],
+                              ).animate().fadeIn(
+                                duration: 300.ms,
+                                delay: 600.ms,
                               ),
-                              Expanded(
-                                child: Divider(
-                                  color: isDark
-                                      ? AppColors.borderDark.withValues(alpha: 0.5)
-                                      : AppColors.borderLight.withValues(alpha: 0.5),
-                                  thickness: 1,
-                                ),
-                              ),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                    width: double.infinity,
+                                    child: PrimaryButton(
+                                      label: 'Continue with Email',
+                                      onPressed: _handleEmailSignIn,
+                                    ),
+                                  )
+                                  .animate()
+                                  .fadeIn(duration: 400.ms, delay: 700.ms)
+                                  .slideY(
+                                    begin: 0.3,
+                                    end: 0,
+                                    duration: 500.ms,
+                                    delay: 700.ms,
+                                    curve: Curves.easeOutCubic,
+                                  ),
                             ],
-                          )
-                              .animate()
-                              .fadeIn(duration: 300.ms, delay: 600.ms),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            child: PrimaryButton(
-                              label: 'Continue with Email',
-                              onPressed: _handleEmailSignIn,
-                            ),
-                          )
-                              .animate()
-                              .fadeIn(duration: 400.ms, delay: 700.ms)
-                              .slideY(begin: 0.3, end: 0, duration: 500.ms, delay: 700.ms, curve: Curves.easeOutCubic),
-                        ],
-                      ),
-                    )
+                          ),
+                        )
                         .animate()
                         .fadeIn(duration: 500.ms, delay: 300.ms)
-                        .scale(begin: const Offset(0.95, 0.95), end: const Offset(1.0, 1.0), duration: 600.ms, delay: 300.ms, curve: Curves.easeOutCubic),
+                        .scale(
+                          begin: const Offset(0.95, 0.95),
+                          end: const Offset(1.0, 1.0),
+                          duration: 600.ms,
+                          delay: 300.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
                   ],
                 ),
               ),
@@ -320,10 +389,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 class _GoogleSignInButton extends StatelessWidget {
   final VoidCallback onPressed;
   final bool isDark;
+  final bool isLoading;
 
   const _GoogleSignInButton({
     required this.onPressed,
     required this.isDark,
+    this.isLoading = false,
   });
 
   @override
@@ -332,47 +403,55 @@ class _GoogleSignInButton extends StatelessWidget {
       width: double.infinity,
       height: 56,
       child: OutlinedButton(
-        onPressed: onPressed,
+        onPressed: isLoading ? null : onPressed,
         style: OutlinedButton.styleFrom(
           backgroundColor: Colors.white,
           foregroundColor: const Color(0xFF1F1F1F),
-          side: const BorderSide(
-            color: Color(0xFFDADCE0),
-            width: 1,
-          ),
+          side: const BorderSide(color: Color(0xFFDADCE0), width: 1),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
           elevation: 0,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/google_logo.png',
-              width: 20,
-              height: 20,
-              errorBuilder: (context, error, stackTrace) {
-                // Fallback if image not found
-                return const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: Icon(Icons.g_mobiledata, size: 20),
-                );
-              },
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Continue with Google',
-              style: AppTheme.body(
-                context: context,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF1F1F1F),
+        child: isLoading
+            ? SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    const Color(0xFF1F1F1F),
+                  ),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    'assets/images/google_logo.png',
+                    width: 20,
+                    height: 20,
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback if image not found
+                      return const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: Icon(Icons.g_mobiledata, size: 20),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Continue with Google',
+                    style: AppTheme.body(
+                      context: context,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF1F1F1F),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -383,10 +462,12 @@ class _GoogleSignInButton extends StatelessWidget {
 class _AppleSignInButton extends StatelessWidget {
   final VoidCallback onPressed;
   final bool isDark;
+  final bool isLoading;
 
   const _AppleSignInButton({
     required this.onPressed,
     required this.isDark,
+    this.isLoading = false,
   });
 
   @override
@@ -395,7 +476,7 @@ class _AppleSignInButton extends StatelessWidget {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: onPressed,
+        onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.black,
           foregroundColor: Colors.white,
@@ -404,35 +485,47 @@ class _AppleSignInButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadius.lg),
           ),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              'assets/images/apple_logo.svg',
-              width: 20,
-              height: 20,
-              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-              errorBuilder: (context, error, stackTrace) {
-                // Fallback if SVG not found
-                return const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: Icon(Icons.apple, size: 20, color: Colors.white),
-                );
-              },
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Continue with Apple',
-              style: AppTheme.body(
-                context: context,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SvgPicture.asset(
+                    'assets/images/apple_logo.svg',
+                    width: 20,
+                    height: 20,
+                    colorFilter: const ColorFilter.mode(
+                      Colors.white,
+                      BlendMode.srcIn,
+                    ),
+                    errorBuilder: (context, error, stackTrace) {
+                      // Fallback if SVG not found
+                      return const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: Icon(Icons.apple, size: 20, color: Colors.white),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Continue with Apple',
+                    style: AppTheme.body(
+                      context: context,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }

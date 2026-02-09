@@ -40,16 +40,6 @@ class OnboardingPageIndicators extends StatelessWidget {
                 : null,
             color: isActive ? null : inactive.withValues(alpha: 0.4),
             borderRadius: BorderRadius.circular(AppRadius.full),
-            boxShadow: isActive
-                ? [
-                    BoxShadow(
-                      color: active.withOpacity(0.4),
-                      blurRadius: 8,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
           ),
         )
             .animate(key: ValueKey('indicator_$i'))

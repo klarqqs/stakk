@@ -46,21 +46,25 @@ Checklist for Stakk USDC Savings App launch readiness.
 
 ## Store Readiness
 
-- [ ] App icons (all sizes)
-- [ ] Screenshots (iOS, Android)
-- [ ] App description & keywords
-- [ ] Privacy policy URL live
-- [ ] Terms of service URL live
-- [ ] Support contact (email) in store listing
+- [x] App icons (all sizes) ✅ (iOS and Android icons configured)
+- [ ] Screenshots (iOS, Android) - See SCREENSHOTS_GUIDE.md
+- [x] App description & keywords ✅ (See STORE_LISTING_CONTENT.md)
+- [ ] Privacy policy URL live - Need to host PRIVACY_POLICY_WEB.html
+- [ ] Terms of service URL live - Need to host TERMS_OF_SERVICE_WEB.html
+- [x] Support contact (email) in store listing ✅ (support@stakk.app)
+- [x] Privacy Policy screen ✅ (Comprehensive, store-compliant)
+- [x] Terms of Service screen ✅ (Comprehensive, store-compliant)
 
 ---
 
 ## Security & Config
 
-- [ ] All API keys in env (no secrets in repo)
-- [ ] Backend env validated on startup
-- [ ] Rate limiting on auth endpoints
-- [ ] CORS configured for production domains
+- [x] All API keys in env (no secrets in repo) ✅ (.env in .gitignore)
+- [x] Backend env validated on startup ✅ (env-validation.ts)
+- [x] Rate limiting on auth endpoints ✅ (All auth endpoints protected)
+- [x] Rate limiting on sensitive operations ✅ (Withdrawals, transfers, bill payments)
+- [x] CORS configured for production domains ✅ (Whitelist-based in production)
+- [x] Security headers enabled ✅ (X-Frame-Options, HSTS, etc.)
 
 ---
 

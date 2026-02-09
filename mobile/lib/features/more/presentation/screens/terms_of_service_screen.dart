@@ -39,7 +39,7 @@ class TermsOfServiceScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildEffectiveDate(context, 'Effective Date: February 7, 2025'),
+                    _buildEffectiveDate(context, 'Effective Date: February 7, 2026'),
                     const SizedBox(height: 24),
                     _buildSection(context, '1. Introduction', [
                       'Welcome to Stakk ("we," "our," or "us"). These Terms of Use ("Terms") govern your access to and use of our products and services, including the Stakk mobile application, website, and related platforms (collectively, the "Services").',

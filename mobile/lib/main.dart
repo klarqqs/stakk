@@ -9,9 +9,12 @@ import 'api/api_client.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'core/constants/storage_keys.dart';
-import 'providers/auth_provider.dart';
-import 'services/fcm_service.dart';
-
+import 'core/utils/offline_handler.dart';
+// import 'providers/auth_provider.dart';
+// import 'services/fcm_service.dart';
+import 'services/error_tracking_service.dart';
+import 'services/analytics_service.dart';
+import 'services/app_version_service.dart';
 import 'features/auth/auth.dart';
 import 'features/dashboard/presentation/screens/dashboard_shell.dart';
 
@@ -31,8 +34,20 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize error tracking (wraps app in error boundary)
+  await ErrorTrackingService().initialize();
+  
   // Initialize Firebase
   await Firebase.initializeApp();
+  
+  // Initialize analytics
+  await AnalyticsService().initialize();
+  
+  // Initialize app version service
+  await AppVersionService().initialize();
+  
+  // Initialize offline handler
+  await OfflineHandler().initialize();
   
   // Set up background message handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -41,6 +56,8 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  
+  // Run app with error tracking
   runApp(const StakkApp());
 }
 
@@ -56,43 +73,53 @@ class StakkApp extends StatelessWidget {
       ],
       child: Builder(
         builder: (ctx) {
+          // Set up session expiry handler
           ApiClient.onSessionExpired = () {
+            ErrorTrackingService().captureMessage(
+              'Session expired - user logged out',
+              context: {'screen': 'api_client'},
+            );
             ctx.read<AuthProvider>().logout().then((_) {
               if (ctx.mounted) {
                 Navigator.of(ctx).pushNamedAndRemoveUntil('/', (r) => false);
               }
             });
           };
+          
           return Consumer<ThemeProvider>(
             builder: (_, themeProvider, __) {
               return MaterialApp(
-            title: 'Stakk',
-            debugShowCheckedModeBanner: false,
-            theme: themeProvider.lightTheme,
-            darkTheme: themeProvider.darkTheme,
-            themeMode: themeProvider.themeMode,
-            initialRoute: '/',
-            routes: {
-              '/': (context) => const AuthGate(),
-              '/auth/email': (context) => const EmailOtpScreen(),
-              '/auth/check-email': (context) => const CheckEmailScreen(),
-              '/auth/login': (context) => const LoginScreen(),
-              '/auth/signup': (context) => const SignupScreen(),
-              '/auth/verify-email': (context) => const VerifyEmailScreen(),
-              '/auth/complete-profile': (context) => const CompleteProfileScreen(),
-              '/auth/create-passcode': (context) {
-                final args = ModalRoute.of(context)?.settings.arguments;
-                return CreatePasscodeScreen(isFromSignup: args == true);
-              },
-              '/auth/reenter-passcode': (context) => const ReenterPasscodeScreen(),
-              '/auth/passcode': (context) => const PasscodeGateScreen(),
-              '/auth/forgot-password': (context) => const ForgotPasswordScreen(),
-              '/auth/reset-password': (context) => const ResetPasswordScreen(),
-              '/dashboard': (context) => const DashboardShell(),
-            },
-            onUnknownRoute: (_) =>
-                MaterialPageRoute(builder: (_) => const AuthGate()),
-          );
+                title: 'Stakk',
+                debugShowCheckedModeBanner: false,
+                theme: themeProvider.lightTheme,
+                darkTheme: themeProvider.darkTheme,
+                themeMode: themeProvider.themeMode,
+                initialRoute: '/',
+                routes: {
+                  '/': (context) => const AuthGate(),
+                  '/auth/email': (context) => const EmailOtpScreen(),
+                  '/auth/check-email': (context) => const CheckEmailScreen(),
+                  '/auth/login': (context) => const LoginScreen(),
+                  '/auth/signup': (context) => const SignupScreen(),
+                  '/auth/verify-email': (context) => const VerifyEmailScreen(),
+                  '/auth/complete-profile': (context) => const CompleteProfileScreen(),
+                  '/auth/create-passcode': (context) {
+                    final args = ModalRoute.of(context)?.settings.arguments;
+                    return CreatePasscodeScreen(isFromSignup: args == true);
+                  },
+                  '/auth/reenter-passcode': (context) => const ReenterPasscodeScreen(),
+                  '/auth/passcode': (context) => const PasscodeGateScreen(),
+                  '/auth/forgot-password': (context) => const ForgotPasswordScreen(),
+                  '/auth/reset-password': (context) => const ResetPasswordScreen(),
+                  '/dashboard': (context) => const DashboardShell(),
+                },
+                onUnknownRoute: (_) =>
+                    MaterialPageRoute(builder: (_) => const AuthGate()),
+                // Global error handler
+                builder: (context, child) {
+                  return _ErrorBoundary(child: child ?? const SizedBox());
+                },
+              );
             },
           );
         },
@@ -154,4 +181,38 @@ class AuthGateResult {
   final bool hasPasscode;
 
   AuthGateResult({required this.isAuth, required this.hasPasscode});
+}
+
+/// Global error boundary widget
+class _ErrorBoundary extends StatefulWidget {
+  final Widget child;
+
+  const _ErrorBoundary({required this.child});
+
+  @override
+  State<_ErrorBoundary> createState() => _ErrorBoundaryState();
+}
+
+class _ErrorBoundaryState extends State<_ErrorBoundary> {
+  @override
+  void initState() {
+    super.initState();
+    // Catch Flutter framework errors
+    FlutterError.onError = (FlutterErrorDetails details) {
+      ErrorTrackingService().captureError(
+        details.exception,
+        stackTrace: details.stack,
+        context: {
+          'library': details.library,
+          'context': details.context?.toString(),
+        },
+      );
+      FlutterError.presentError(details);
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
 }
