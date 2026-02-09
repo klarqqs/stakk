@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Passcode Set | STAKK</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #F8FAFC;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+        .email-wrapper { width: 100%; background-color: #F8FAFC; padding: 20px 0; }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #FFFFFF;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .email-header-logo {
+            padding: 32px 30px 24px;
+            text-align: center;
+            background: linear-gradient(135deg, #4F46E5 0%, #3B82F6 100%);
+        }
+        .email-header-logo-text {
+            color: #FFFFFF;
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'Unbounded', sans-serif;
+            letter-spacing: -0.5px;
+        }
+        .email-content { padding: 40px 30px; }
+        .email-title {
+            font-family: 'Unbounded', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: #0F172A;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .success-banner {
+            background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+            border: 1px solid #6EE7B7;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            text-align: center;
+        }
+        .success-banner-icon { font-size: 48px; margin-bottom: 12px; }
+        .greeting { font-size: 16px; color: #0F172A; margin-bottom: 20px; }
+        .main-content { font-size: 16px; color: #0F172A; margin-bottom: 24px; line-height: 1.7; }
+        .security-warning {
+            background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+            border: 1px solid #FCD34D;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 24px 0;
+            font-size: 14px;
+            color: #92400E;
+            border-left: 4px solid #F59E0B;
+        }
+        .security-warning strong {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #78350F;
+        }
+        .closing { margin: 32px 0 24px; font-size: 15px; color: #64748B; }
+        .team-signature { font-weight: 600; color: #0F172A; margin-top: 8px; }
+        .footer {
+            background-color: #F8FAFC;
+            padding: 24px 30px;
+            text-align: center;
+            border-top: 1px solid #E2E8F0;
+        }
+        .footer-text { font-size: 13px; color: #94A3B8; margin-bottom: 8px; }
+        .footer-links { margin: 12px 0; }
+        .footer-link { color: #4F46E5; text-decoration: none; font-size: 13px; margin: 0 8px; }
+        .footer-copyright { font-size: 12px; color: #94A3B8; margin-top: 16px; }
+        @media only screen and (max-width: 600px) {
+            .email-wrapper { padding: 10px; }
+            .email-content { padding: 30px 20px; }
+            .email-title { font-size: 24px; }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="email-header-logo">
+                <div class="email-header-logo-text">STAKK</div>
+            </div>
+            <div class="email-content">
+                <h1 class="email-title">Passcode Set Successfully</h1>
+                
+                <div class="success-banner">
+                    <div class="success-banner-icon">🔒</div>
+                    <p style="font-size: 18px; font-weight: 600; color: #065F46; margin: 0;">
+                        Your transaction passcode has been set
+                    </p>
+                </div>
+                
+                <p class="greeting">Hello {{firstName}},</p>
+                
+                <p class="main-content">
+                    Your transaction passcode was successfully created on {{timestamp}}. This passcode will be required for all transfers, withdrawals, and sensitive transactions to keep your account secure.
+                </p>
+                
+                <div class="security-warning">
+                    <strong>Security Reminder</strong>
+                    Never share your passcode with anyone. STAKK will never ask for your passcode via email, phone, or message. If you forget your passcode, you can reset it through the app with email verification.
+                </div>
+                
+                <div class="closing">
+                    <p>Your account is now more secure.</p>
+                    <p class="team-signature">The STAKK Team</p>
+                </div>
+            </div>
+            <div class="footer">
+                <p class="footer-text">Email us at <a href="mailto:{{supportEmail}}" class="footer-link">{{supportEmail}}</a></p>
+                <div class="footer-links">
+                    <a href="{{faqUrl}}" class="footer-link">FAQs</a>
+                    <a href="{{supportUrl}}" class="footer-link">Support</a>
+                </div>
+                <p class="footer-copyright">© {{currentYear}} STAKK. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

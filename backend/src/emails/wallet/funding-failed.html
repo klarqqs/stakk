@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Funding Failed | STAKK</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #F8FAFC;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+        }
+        .email-wrapper { width: 100%; background-color: #F8FAFC; padding: 20px 0; }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #FFFFFF;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        .email-header-logo {
+            padding: 32px 30px 24px;
+            text-align: center;
+            background: linear-gradient(135deg, #4F46E5 0%, #3B82F6 100%);
+        }
+        .email-header-logo-text {
+            color: #FFFFFF;
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'Unbounded', sans-serif;
+            letter-spacing: -0.5px;
+        }
+        .email-content { padding: 40px 30px; }
+        .email-title {
+            font-family: 'Unbounded', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: #0F172A;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+        .error-banner {
+            background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
+            border: 1px solid #FCA5A5;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            text-align: center;
+        }
+        .error-banner-icon { font-size: 48px; margin-bottom: 12px; }
+        .greeting { font-size: 16px; color: #0F172A; margin-bottom: 20px; }
+        .main-content { font-size: 16px; color: #0F172A; margin-bottom: 24px; line-height: 1.7; }
+        .failure-reason {
+            background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 24px 0;
+            border: 1px solid #E2E8F0;
+            border-left: 4px solid #DC2626;
+        }
+        .failure-reason strong {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #DC2626;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #4F46E5 0%, #3B82F6 100%);
+            color: #FFFFFF !important;
+            padding: 14px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            text-align: center;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        .closing { margin: 32px 0 24px; font-size: 15px; color: #64748B; }
+        .team-signature { font-weight: 600; color: #0F172A; margin-top: 8px; }
+        .footer {
+            background-color: #F8FAFC;
+            padding: 24px 30px;
+            text-align: center;
+            border-top: 1px solid #E2E8F0;
+        }
+        .footer-text { font-size: 13px; color: #94A3B8; margin-bottom: 8px; }
+        .footer-links { margin: 12px 0; }
+        .footer-link { color: #4F46E5; text-decoration: none; font-size: 13px; margin: 0 8px; }
+        .footer-copyright { font-size: 12px; color: #94A3B8; margin-top: 16px; }
+        @media only screen and (max-width: 600px) {
+            .email-wrapper { padding: 10px; }
+            .email-content { padding: 30px 20px; }
+            .email-title { font-size: 24px; }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="email-header-logo">
+                <div class="email-header-logo-text">STAKK</div>
+            </div>
+            <div class="email-content">
+                <h1 class="email-title">Funding Failed</h1>
+                
+                <div class="error-banner">
+                    <div class="error-banner-icon">❌</div>
+                    <p style="font-size: 18px; font-weight: 600; color: #991B1B; margin: 0;">
+                        Your wallet funding was unsuccessful
+                    </p>
+                </div>
+                
+                <p class="greeting">Hello {{firstName}},</p>
+                
+                <p class="main-content">
+                    We were unable to process your wallet funding of {{amount}} {{currency}}. Your payment method was not charged.
+                </p>
+                
+                <div class="failure-reason">
+                    <strong>Reason</strong>
+                    {{failureReason}}
+                </div>
+                
+                <div style="text-align: center; margin: 24px 0;">
+                    <a href="{{appUrl}}/wallet/fund" class="cta-button">Try Again</a>
+                </div>
+                
+                <p class="main-content">
+                    If this issue persists, please contact our support team. We're here to help resolve any payment issues.
+                </p>
+                
+                <div class="closing">
+                    <p>Need help? Contact us at {{supportEmail}}</p>
+                    <p class="team-signature">The STAKK Team</p>
+                </div>
+            </div>
+            <div class="footer">
+                <p class="footer-text">Email us at <a href="mailto:{{supportEmail}}" class="footer-link">{{supportEmail}}</a></p>
+                <div class="footer-links">
+                    <a href="{{faqUrl}}" class="footer-link">FAQs</a>
+                    <a href="{{supportUrl}}" class="footer-link">Support</a>
+                </div>
+                <p class="footer-copyright">© {{currentYear}} STAKK. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

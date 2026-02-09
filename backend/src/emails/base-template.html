@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{{emailTitle}} | STAKK</title>
+    <!--[if mso]>
+    <style type="text/css">
+        body, table, td {font-family: Arial, sans-serif !important;}
+    </style>
+    <![endif]-->
+    <style>
+        /* Reset styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #F8FAFC;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .email-wrapper {
+            width: 100%;
+            background-color: #F8FAFC;
+            padding: 20px 0;
+        }
+        
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #FFFFFF;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        .email-header-logo {
+            padding: 32px 30px 24px;
+            text-align: center;
+            background: linear-gradient(135deg, #4F46E5 0%, #3B82F6 100%);
+        }
+        
+        .email-header-logo img {
+            max-width: 120px;
+            height: auto;
+        }
+        
+        .email-header-logo-text {
+            color: #FFFFFF;
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'Unbounded', -apple-system, BlinkMacSystemFont, sans-serif;
+            letter-spacing: -0.5px;
+            margin-top: 12px;
+        }
+        
+        .email-content {
+            padding: 40px 30px;
+        }
+        
+        .email-title {
+            font-family: 'Unbounded', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: #0F172A;
+            margin-bottom: 16px;
+            line-height: 1.2;
+            letter-spacing: -0.5px;
+        }
+        
+        .email-subtitle {
+            font-size: 18px;
+            font-weight: 600;
+            color: #64748B;
+            margin-bottom: 24px;
+            line-height: 1.4;
+        }
+        
+        .greeting {
+            font-size: 16px;
+            font-weight: 400;
+            color: #0F172A;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .main-content {
+            font-size: 16px;
+            font-weight: 400;
+            color: #0F172A;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        
+        .highlight-text {
+            font-weight: 600;
+            color: #4F46E5;
+        }
+        
+        .amount-text {
+            font-size: 32px;
+            font-weight: 700;
+            color: #0F172A;
+            font-family: 'Unbounded', -apple-system, BlinkMacSystemFont, sans-serif;
+            letter-spacing: -1px;
+        }
+        
+        .verification-code {
+            font-size: 36px;
+            font-weight: 700;
+            color: #0F172A;
+            text-align: center;
+            margin: 24px 0;
+            padding: 24px;
+            background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+            border-radius: 12px;
+            letter-spacing: 6px;
+            font-family: 'Unbounded', -apple-system, BlinkMacSystemFont, sans-serif;
+            border: 2px solid #C7D2FE;
+        }
+        
+        .transaction-details {
+            background: linear-gradient(135deg, #F8FAFC 0%, #F1F5F9 100%);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 24px 0;
+            border: 1px solid #E2E8F0;
+        }
+        
+        .transaction-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            font-size: 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #E2E8F0;
+        }
+        
+        .transaction-row:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .transaction-label {
+            font-weight: 500;
+            color: #64748B;
+            flex: 1;
+        }
+        
+        .transaction-value {
+            font-weight: 600;
+            color: #0F172A;
+            text-align: right;
+            flex: 1;
+        }
+        
+        .action-list {
+            margin: 24px 0;
+        }
+        
+        .action-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            font-size: 15px;
+            padding: 16px;
+            background-color: #F8FAFC;
+            border-radius: 8px;
+            border-left: 3px solid #4F46E5;
+        }
+        
+        .action-icon {
+            margin-right: 12px;
+            margin-top: 2px;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        
+        .action-text {
+            flex: 1;
+            color: #0F172A;
+        }
+        
+        .action-text .highlight-text {
+            font-weight: 600;
+            color: #4F46E5;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #4F46E5 0%, #3B82F6 100%);
+            color: #FFFFFF !important;
+            padding: 14px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            text-align: center;
+            margin: 20px 0;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+        }
+        
+        .security-warning {
+            background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+            border: 1px solid #FCD34D;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 24px 0;
+            font-size: 14px;
+            color: #92400E;
+            border-left: 4px solid #F59E0B;
+        }
+        
+        .security-warning strong {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #78350F;
+        }
+        
+        .success-banner {
+            background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+            border: 1px solid #6EE7B7;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 24px 0;
+            text-align: center;
+        }
+        
+        .success-banner-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        
+        .error-banner {
+            background: linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%);
+            border: 1px solid #FCA5A5;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 24px 0;
+            text-align: center;
+        }
+        
+        .error-banner-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+        
+        .faq-section {
+            margin: 32px 0;
+            text-align: center;
+            padding-top: 24px;
+            border-top: 1px solid #E2E8F0;
+        }
+        
+        .faq-text {
+            font-size: 15px;
+            color: #64748B;
+            margin-bottom: 16px;
+        }
+        
+        .faq-button {
+            display: inline-block;
+            background-color: #4F46E5;
+            color: #FFFFFF !important;
+            padding: 12px 28px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .faq-button:hover {
+            background-color: #4338CA;
+        }
+        
+        .app-section {
+            margin: 32px 0;
+            text-align: center;
+            padding-top: 24px;
+            border-top: 1px solid #E2E8F0;
+        }
+        
+        .app-text {
+            font-size: 15px;
+            color: #64748B;
+            margin-bottom: 20px;
+        }
+        
+        .app-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .app-button {
+            display: inline-block;
+            text-decoration: none;
+            transition: transform 0.2s ease;
+        }
+        
+        .app-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .app-button img {
+            height: 50px;
+            width: auto;
+            border-radius: 8px;
+        }
+        
+        .closing {
+            margin: 32px 0 24px 0;
+            font-size: 15px;
+            color: #64748B;
+            line-height: 1.6;
+        }
+        
+        .team-signature {
+            font-weight: 600;
+            color: #0F172A;
+            margin-top: 8px;
+        }
+        
+        .footer {
+            background-color: #F8FAFC;
+            padding: 24px 30px;
+            text-align: center;
+            border-top: 1px solid #E2E8F0;
+        }
+        
+        .footer-text {
+            font-size: 13px;
+            color: #94A3B8;
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        
+        .footer-links {
+            margin: 12px 0;
+        }
+        
+        .footer-link {
+            color: #4F46E5;
+            text-decoration: none;
+            font-size: 13px;
+            margin: 0 8px;
+        }
+        
+        .footer-link:hover {
+            text-decoration: underline;
+        }
+        
+        .footer-copyright {
+            font-size: 12px;
+            color: #94A3B8;
+            margin-top: 16px;
+        }
+        
+        /* Responsive Design */
+        @media only screen and (max-width: 600px) {
+            .email-wrapper {
+                padding: 10px;
+            }
+            
+            .email-content {
+                padding: 30px 20px;
+            }
+            
+            .email-header-logo {
+                padding: 24px 20px 20px;
+            }
+            
+            .email-title {
+                font-size: 24px;
+            }
+            
+            .email-subtitle {
+                font-size: 16px;
+            }
+            
+            .verification-code {
+                font-size: 28px;
+                letter-spacing: 4px;
+                padding: 20px;
+            }
+            
+            .amount-text {
+                font-size: 28px;
+            }
+            
+            .app-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .app-button {
+                margin-bottom: 8px;
+            }
+            
+            .transaction-row {
+                flex-direction: column;
+                gap: 4px;
+            }
+            
+            .transaction-value {
+                text-align: left;
+            }
+        }
+        
+        @media only screen and (max-width: 480px) {
+            .email-content {
+                padding: 24px 16px;
+            }
+            
+            .email-title {
+                font-size: 22px;
+            }
+            
+            .verification-code {
+                font-size: 24px;
+                letter-spacing: 3px;
+            }
+        }
+        
+        /* Dark mode support (for email clients that support it) */
+        @media (prefers-color-scheme: dark) {
+            .email-container {
+                background-color: #1F2937;
+            }
+            
+            .email-title,
+            .greeting,
+            .main-content,
+            .action-text {
+                color: #F8FAFC;
+            }
+            
+            .email-subtitle,
+            .transaction-label,
+            .faq-text,
+            .app-text {
+                color: #94A3B8;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <!-- Header -->
+            <div class="email-header-logo">
+                {{#if logoUrl}}
+                <img src="{{logoUrl}}" alt="STAKK Logo" />
+                {{else}}
+                <div class="email-header-logo-text">STAKK</div>
+                {{/if}}
+            </div>
+            
+            <!-- Content -->
+            <div class="email-content">
+                {{content}}
+            </div>
+            
+            <!-- Footer -->
+            <div class="footer">
+                <p class="footer-text">
+                    Questions? We're here to help.<br>
+                    Email us at <a href="mailto:{{supportEmail}}" class="footer-link">{{supportEmail}}</a>
+                </p>
+                <div class="footer-links">
+                    <a href="{{faqUrl}}" class="footer-link">FAQs</a>
+                    <a href="{{supportUrl}}" class="footer-link">Support</a>
+                    <a href="{{appUrl}}" class="footer-link">Visit STAKK</a>
+                </div>
+                <p class="footer-copyright">
+                    © {{currentYear}} STAKK. All rights reserved.<br>
+                    Save in USDC, protected from inflation.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

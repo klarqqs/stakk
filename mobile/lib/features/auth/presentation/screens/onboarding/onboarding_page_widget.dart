@@ -1,47 +1,78 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
+import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
 import 'package:stakk_savings/features/auth/presentation/screens/onboarding/onboarding_steps.dart';
 
 /// Reusable onboarding page. Renders one step with icon, title, subtitle.
-/// 2026 fintech: clean hero icon, strong hierarchy.
+/// 2026 fintech: premium visuals, smooth animations, captivating design.
 class OnboardingPageWidget extends StatelessWidget {
   final OnboardingStep step;
+  final int pageIndex;
 
-  const OnboardingPageWidget({super.key, required this.step});
+  const OnboardingPageWidget({
+    super.key,
+    required this.step,
+    required this.pageIndex,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    final primaryGradientEnd = isDark ? AppColors.primaryDark : AppColors.primaryGradientEnd;
+    
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
+      padding: const EdgeInsets.symmetric(horizontal: 32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _HeroIcon(icon: step.icon, primary: primary),
-          const SizedBox(height: 56),
+          // Hero Icon with enhanced visual effects
+          _HeroIcon(
+            icon: step.icon,
+            primary: primary,
+            primaryGradientEnd: primaryGradientEnd,
+            isDark: isDark,
+          )
+              .animate()
+              .fadeIn(duration: 400.ms, delay: 100.ms)
+              .scale(begin: const Offset(0.8, 0.8), end: const Offset(1.0, 1.0), duration: 500.ms, delay: 100.ms, curve: Curves.easeOutBack),
+          
+          const SizedBox(height: 64),
+          
+          // Title with animation
           Text(
             step.title,
             style: AppTheme.headline(
               context: context,
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
+              fontSize: 36,
+              fontWeight: FontWeight.w800,
             ),
             textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
+          )
+              .animate()
+              .fadeIn(duration: 400.ms, delay: 300.ms)
+              .slideY(begin: 0.2, end: 0, duration: 500.ms, delay: 300.ms, curve: Curves.easeOutCubic),
+          
+          const SizedBox(height: 24),
+          
+          // Subtitle with animation
           Text(
             step.subtitle,
             style: AppTheme.body(
               context: context,
-              fontSize: 17,
+              fontSize: 18,
               color: isDark
                   ? AppColors.textSecondaryDark
                   : AppColors.textSecondaryLight,
+              height: 1.6,
             ),
             textAlign: TextAlign.center,
-          ),
+          )
+              .animate()
+              .fadeIn(duration: 400.ms, delay: 500.ms)
+              .slideY(begin: 0.2, end: 0, duration: 500.ms, delay: 500.ms, curve: Curves.easeOutCubic),
         ],
       ),
     );
@@ -51,19 +82,93 @@ class OnboardingPageWidget extends StatelessWidget {
 class _HeroIcon extends StatelessWidget {
   final IconData icon;
   final Color primary;
+  final Color primaryGradientEnd;
+  final bool isDark;
 
-  const _HeroIcon({required this.icon, required this.primary});
+  const _HeroIcon({
+    required this.icon,
+    required this.primary,
+    required this.primaryGradientEnd,
+    required this.isDark,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      child: Icon(icon, size: 84, color: primary),
-      // child: SvgPicture.asset(
-      //   'assets/images/onboarding_${icon}.svg',
-      //   width: 84,
-      //   height: 84,
-      //   colorFilter: ColorFilter.mode(primary, BlendMode.srcIn),
-      // ),
+    return Container(
+      width: 140,
+      height: 140,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            primary.withOpacity(0.15),
+            primaryGradientEnd.withOpacity(0.1),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: primary.withOpacity(0.2),
+            blurRadius: 40,
+            spreadRadius: 0,
+            offset: const Offset(0, 20),
+          ),
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer glow ring
+          Container(
+            width: 140,
+            height: 140,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: primary.withOpacity(0.2),
+                width: 2,
+              ),
+            ),
+          ),
+          // Icon container with gradient background
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [
+                        AppColors.surfaceVariantDarkMuted,
+                        AppColors.surfaceVariantDark,
+                      ]
+                    : [
+                        Colors.white,
+                        AppColors.surfaceVariantLight,
+                      ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withOpacity(0.3)
+                      : Colors.black.withOpacity(0.08),
+                  blurRadius: 24,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              size: 64,
+              color: primary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
