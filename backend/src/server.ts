@@ -36,9 +36,8 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Sentry request handler (must be first)
-app.use(Sentry.Handlers.requestHandler());
-app.use(Sentry.Handlers.tracingHandler());
+// Note: Sentry v8 auto-instruments Express when initialized
+// No need for requestHandler() or tracingHandler() middleware
 
 // CORS configuration
 const corsOrigins = getCorsOrigins();
@@ -108,21 +107,6 @@ app.use('/api/transparency', transparencyRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/app', appRoutes);
 
-// Sentry error handler (must be before other error handlers)
-app.use(Sentry.Handlers.errorHandler());
-
-// Custom error handler
-app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  // Capture error in Sentry
-  Sentry.captureException(err);
-  
-  console.error('Unhandled error:', err);
-  res.status(500).json({ 
-    error: 'Internal server error',
-    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
-  });
-});
-
 // Health check (Railway and other platforms)
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Stakk API is running' });
@@ -141,6 +125,21 @@ app.get('/api/debug/outbound-ip', async (_req, res) => {
 
 // Root redirect for platform health checks
 app.get('/', (req, res) => res.redirect('/health'));
+
+// Sentry error handler (must be after all routes, before other error handlers)
+Sentry.setupExpressErrorHandler(app);
+
+// Custom error handler
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  // Capture error in Sentry
+  Sentry.captureException(err);
+  
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+  });
+});
 
 // Start server - bind to 0.0.0.0 so Railway can reach it from outside the container
 app.listen(Number(PORT), '0.0.0.0', async () => {

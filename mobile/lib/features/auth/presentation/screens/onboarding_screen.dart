@@ -75,8 +75,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _handleGoogleSignIn() async {
-    if (_isGoogleLoading) return;
+    if (_isGoogleLoading || _isAppleLoading) return;
     
+    _autoSwipeTimer?.cancel();
     setState(() => _isGoogleLoading = true);
     try {
       final googleSignIn = GoogleSignIn();
@@ -109,8 +110,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _handleAppleSignIn() async {
-    if (_isAppleLoading) return;
+    if (_isAppleLoading || _isGoogleLoading) return;
     
+    _autoSwipeTimer?.cancel();
     setState(() => _isAppleLoading = true);
     try {
       // Check if Sign in with Apple is available
@@ -196,13 +198,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _handlePostSignIn() async {
     if (!mounted) return;
-    const storage = FlutterSecureStorage();
-    final passcode = await storage.read(key: StorageKeys.passcode);
-    if (!mounted) return;
-    if (passcode != null && passcode.isNotEmpty) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (r) => false);
-    } else {
-      Navigator.of(context).pushReplacementNamed('/auth/create-passcode', arguments: true);
+    try {
+      const storage = FlutterSecureStorage();
+      final passcode = await storage.read(key: StorageKeys.passcode);
+      if (!mounted) return;
+      if (passcode != null && passcode.isNotEmpty) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (r) => false);
+      } else {
+        Navigator.of(context).pushReplacementNamed('/auth/create-passcode', arguments: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
+          _isAppleLoading = false;
+        });
+        TopSnackbar.error(context, ErrorMessageFormatter.format(e));
+      }
     }
   }
 
@@ -210,172 +222,191 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     Navigator.of(context).pushReplacementNamed('/auth/check-email');
   }
 
+  bool get _isLoading => _isGoogleLoading || _isAppleLoading;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [
-                    AppColors.gradientStartDark,
-                    AppColors.gradientEndDark,
-                    AppColors.gradientStartDark,
-                  ]
-                : [
-                    AppColors.gradientStartLight,
-                    AppColors.gradientEndLight,
-                    AppColors.gradientStartLight,
-                  ],
-          ),
-        ),
-        child: SafeArea(
-          bottom: false,
-          child: Column(
-            children: [
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  onPageChanged: _onPageChanged,
-                  itemCount: _totalSteps,
-                  physics: const BouncingScrollPhysics(),
-                  itemBuilder: (_, i) => OnboardingPageWidget(
-                    step: onboardingSteps[i],
-                    pageIndex: i,
+      body: AbsorbPointer(
+        absorbing: _isLoading,
+        child: Stack(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? [
+                          AppColors.gradientStartDark,
+                          AppColors.gradientEndDark,
+                          AppColors.gradientStartDark,
+                        ]
+                      : [
+                          AppColors.gradientStartLight,
+                          AppColors.gradientEndLight,
+                          AppColors.gradientStartLight,
+                        ],
+                ),
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Opacity(
+                  opacity: _isLoading ? 0.6 : 1.0,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: PageView.builder(
+                          controller: _pageController,
+                          onPageChanged: _onPageChanged,
+                          itemCount: _totalSteps,
+                          physics: _isLoading ? const NeverScrollableScrollPhysics() : const BouncingScrollPhysics(),
+                          itemBuilder: (_, i) => OnboardingPageWidget(
+                            step: onboardingSteps[i],
+                            pageIndex: i,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+                        child: Column(
+                          children: [
+                            OnboardingPageIndicators(
+                              page: _page,
+                              total: _totalSteps,
+                            ).animate().fadeIn(duration: 400.ms, delay: 300.ms),
+                            const SizedBox(height: 40),
+                            GlassCard(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24,
+                                    vertical: 28,
+                                  ),
+                                  blur: 16,
+                                  child: Column(
+                                    children: [
+                                      _GoogleSignInButton(
+                                            onPressed: _handleGoogleSignIn,
+                                            isDark: isDark,
+                                            isLoading: _isGoogleLoading,
+                                          )
+                                          .animate()
+                                          .fadeIn(duration: 400.ms, delay: 400.ms)
+                                          .slideY(
+                                            begin: 0.3,
+                                            end: 0,
+                                            duration: 500.ms,
+                                            delay: 400.ms,
+                                            curve: Curves.easeOutCubic,
+                                          ),
+                                      const SizedBox(height: 14),
+                                      _AppleSignInButton(
+                                            onPressed: _handleAppleSignIn,
+                                            isDark: isDark,
+                                            isLoading: _isAppleLoading,
+                                          )
+                                          .animate()
+                                          .fadeIn(duration: 400.ms, delay: 500.ms)
+                                          .slideY(
+                                            begin: 0.3,
+                                            end: 0,
+                                            duration: 500.ms,
+                                            delay: 500.ms,
+                                            curve: Curves.easeOutCubic,
+                                          ),
+                                      const SizedBox(height: 24),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Divider(
+                                              color: isDark
+                                                  ? AppColors.borderDark.withValues(
+                                                      alpha: 0.5,
+                                                    )
+                                                  : AppColors.borderLight.withValues(
+                                                      alpha: 0.5,
+                                                    ),
+                                              thickness: 1,
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                            ),
+                                            child: Text(
+                                              'or',
+                                              style: AppTheme.caption(
+                                                context: context,
+                                                fontSize: 14,
+                                                color: isDark
+                                                    ? AppColors.textTertiaryDark
+                                                    : AppColors.textTertiaryLight,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Divider(
+                                              color: isDark
+                                                  ? AppColors.borderDark.withValues(
+                                                      alpha: 0.5,
+                                                    )
+                                                  : AppColors.borderLight.withValues(
+                                                      alpha: 0.5,
+                                                    ),
+                                              thickness: 1,
+                                            ),
+                                          ),
+                                        ],
+                                      ).animate().fadeIn(
+                                        duration: 300.ms,
+                                        delay: 600.ms,
+                                      ),
+                                      const SizedBox(height: 24),
+                                      SizedBox(
+                                            width: double.infinity,
+                                            child: PrimaryButton(
+                                              label: 'Continue with Email',
+                                              onPressed: _isLoading ? null : _handleEmailSignIn,
+                                            ),
+                                          )
+                                          .animate()
+                                          .fadeIn(duration: 400.ms, delay: 700.ms)
+                                          .slideY(
+                                            begin: 0.3,
+                                            end: 0,
+                                            duration: 500.ms,
+                                            delay: 700.ms,
+                                            curve: Curves.easeOutCubic,
+                                          ),
+                                    ],
+                                  ),
+                                )
+                                .animate()
+                                .fadeIn(duration: 500.ms, delay: 300.ms)
+                                .scale(
+                                  begin: const Offset(0.95, 0.95),
+                                  end: const Offset(1.0, 1.0),
+                                  duration: 600.ms,
+                                  delay: 300.ms,
+                                  curve: Curves.easeOutCubic,
+                                ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-                child: Column(
-                  children: [
-                    OnboardingPageIndicators(
-                      page: _page,
-                      total: _totalSteps,
-                    ).animate().fadeIn(duration: 400.ms, delay: 300.ms),
-                    const SizedBox(height: 40),
-                    GlassCard(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 28,
-                          ),
-                          blur: 16,
-                          child: Column(
-                            children: [
-                              _GoogleSignInButton(
-                                    onPressed: _handleGoogleSignIn,
-                                    isDark: isDark,
-                                    isLoading: _isGoogleLoading,
-                                  )
-                                  .animate()
-                                  .fadeIn(duration: 400.ms, delay: 400.ms)
-                                  .slideY(
-                                    begin: 0.3,
-                                    end: 0,
-                                    duration: 500.ms,
-                                    delay: 400.ms,
-                                    curve: Curves.easeOutCubic,
-                                  ),
-                              const SizedBox(height: 14),
-                              _AppleSignInButton(
-                                    onPressed: _handleAppleSignIn,
-                                    isDark: isDark,
-                                    isLoading: _isAppleLoading,
-                                  )
-                                  .animate()
-                                  .fadeIn(duration: 400.ms, delay: 500.ms)
-                                  .slideY(
-                                    begin: 0.3,
-                                    end: 0,
-                                    duration: 500.ms,
-                                    delay: 500.ms,
-                                    curve: Curves.easeOutCubic,
-                                  ),
-                              const SizedBox(height: 24),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Divider(
-                                      color: isDark
-                                          ? AppColors.borderDark.withValues(
-                                              alpha: 0.5,
-                                            )
-                                          : AppColors.borderLight.withValues(
-                                              alpha: 0.5,
-                                            ),
-                                      thickness: 1,
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                    ),
-                                    child: Text(
-                                      'or',
-                                      style: AppTheme.caption(
-                                        context: context,
-                                        fontSize: 14,
-                                        color: isDark
-                                            ? AppColors.textTertiaryDark
-                                            : AppColors.textTertiaryLight,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: Divider(
-                                      color: isDark
-                                          ? AppColors.borderDark.withValues(
-                                              alpha: 0.5,
-                                            )
-                                          : AppColors.borderLight.withValues(
-                                              alpha: 0.5,
-                                            ),
-                                      thickness: 1,
-                                    ),
-                                  ),
-                                ],
-                              ).animate().fadeIn(
-                                duration: 300.ms,
-                                delay: 600.ms,
-                              ),
-                              const SizedBox(height: 24),
-                              SizedBox(
-                                    width: double.infinity,
-                                    child: PrimaryButton(
-                                      label: 'Continue with Email',
-                                      onPressed: _handleEmailSignIn,
-                                    ),
-                                  )
-                                  .animate()
-                                  .fadeIn(duration: 400.ms, delay: 700.ms)
-                                  .slideY(
-                                    begin: 0.3,
-                                    end: 0,
-                                    duration: 500.ms,
-                                    delay: 700.ms,
-                                    curve: Curves.easeOutCubic,
-                                  ),
-                            ],
-                          ),
-                        )
-                        .animate()
-                        .fadeIn(duration: 500.ms, delay: 300.ms)
-                        .scale(
-                          begin: const Offset(0.95, 0.95),
-                          end: const Offset(1.0, 1.0),
-                          duration: 600.ms,
-                          delay: 300.ms,
-                          curve: Curves.easeOutCubic,
-                        ),
-                  ],
+            ),
+            if (_isLoading)
+              Container(
+                color: Colors.black.withOpacity(0.1),
+                child: const Center(
+                  child: CircularProgressIndicator(),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );

@@ -81,118 +81,149 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
     return ErrorMessageFormatter.format(e);
   }
 
+  bool get _isLoading => _isGoogleLoading || _isAppleLoading || _loading;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pushReplacementNamed('/'),
+          onPressed: _isLoading ? null : () => Navigator.of(context).pushReplacementNamed('/'),
         ),
       ),
-      body: SafeArea(bottom: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Enter your email',
-                style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                "We'll check if you have an account and guide you to sign in or sign up.",
-                style: AppTheme.body(fontSize: 15, color: const Color(0xFF6B7280)),
-              ),
-              const SizedBox(height: 32),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                autocorrect: false,
-                enableInteractiveSelection: false,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'you@example.com',
-                ),
-                onChanged: (_) => setState(() => _error = null),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFECACA)),
+      body: AbsorbPointer(
+        absorbing: _isLoading,
+        child: Stack(
+          children: [
+            SafeArea(
+              bottom: false,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                child: Opacity(
+                  opacity: _isLoading ? 0.6 : 1.0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Enter your email',
+                        style: AppTheme.header(context: context, fontSize: 24, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "We'll check if you have an account and guide you to sign in or sign up.",
+                        style: AppTheme.body(fontSize: 15, color: const Color(0xFF6B7280)),
+                      ),
+                      const SizedBox(height: 32),
+                      TextField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        autocorrect: false,
+                        enabled: !_isLoading,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          hintText: 'you@example.com',
+                        ),
+                        onChanged: (_) => setState(() => _error = null),
+                      ),
+                      if (_error != null) ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF2F2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFFECACA)),
+                          ),
+                          child: Text(
+                            _error!,
+                            style: AppTheme.body(fontSize: 14, color: const Color(0xFFDC2626)),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: PrimaryButton(
+                          label: 'Continue',
+                          onPressed: _loading ? null : _checkEmail,
+                          isLoading: _loading,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(child: Divider(color: Theme.of(context).brightness == Brightness.dark ? AppColors.borderDark : AppColors.borderLight)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'or',
+                              style: AppTheme.caption(context: context, fontSize: 13),
+                            ),
+                          ),
+                          Expanded(child: Divider(color: Theme.of(context).brightness == Brightness.dark ? AppColors.borderDark : AppColors.borderLight)),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _GoogleSignInButton(
+                        onPressed: _handleGoogleSignIn,
+                        isDark: Theme.of(context).brightness == Brightness.dark,
+                        isLoading: _isGoogleLoading,
+                      ),
+                      const SizedBox(height: 12),
+                      _AppleSignInButton(
+                        onPressed: _handleAppleSignIn,
+                        isDark: Theme.of(context).brightness == Brightness.dark,
+                        isLoading: _isAppleLoading,
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    _error!,
-                    style: AppTheme.body(fontSize: 14, color: const Color(0xFFDC2626)),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: PrimaryButton(
-                  label: 'Continue',
-                  onPressed: _loading ? null : _checkEmail,
-                  isLoading: _loading,
                 ),
               ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(child: Divider(color: Theme.of(context).brightness == Brightness.dark ? AppColors.borderDark : AppColors.borderLight)),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      'or',
-                      style: AppTheme.caption(context: context, fontSize: 13),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: Theme.of(context).brightness == Brightness.dark ? AppColors.borderDark : AppColors.borderLight)),
-                ],
+            ),
+            if (_isLoading)
+              Container(
+                color: Colors.black.withOpacity(0.1),
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
               ),
-              const SizedBox(height: 20),
-              _GoogleSignInButton(
-                onPressed: _handleGoogleSignIn,
-                isDark: Theme.of(context).brightness == Brightness.dark,
-                isLoading: _isGoogleLoading,
-              ),
-              const SizedBox(height: 12),
-              _AppleSignInButton(
-                onPressed: _handleAppleSignIn,
-                isDark: Theme.of(context).brightness == Brightness.dark,
-                isLoading: _isAppleLoading,
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (_isGoogleLoading || _isAppleLoading) return;
+    
+    setState(() => _isGoogleLoading = true);
     try {
       final googleSignIn = GoogleSignIn();
       final account = await googleSignIn.signIn();
-      if (account == null) return;
+      if (account == null) {
+        if (mounted) setState(() => _isGoogleLoading = false);
+        return;
+      }
 
       final auth = await account.authentication;
       final idToken = auth.idToken;
       if (idToken == null) {
-        if (mounted) TopSnackbar.error(context, 'Failed to get Google token');
+        if (mounted) {
+          setState(() => _isGoogleLoading = false);
+          TopSnackbar.error(context, 'Failed to get Google token');
+        }
         return;
       }
 
       if (!mounted) return;
       await context.read<AuthProvider>().signInWithGoogle(idToken);
+      if (!mounted) return;
       await _handlePostSignIn();
     } catch (e) {
       if (mounted) {
-        TopSnackbar.error(context, 'Google sign-in failed: ${e.toString()}');
+        setState(() => _isGoogleLoading = false);
+        TopSnackbar.error(context, ErrorMessageFormatter.format(e));
       }
     }
   }
@@ -284,13 +315,23 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
 
   Future<void> _handlePostSignIn() async {
     if (!mounted) return;
-    const storage = FlutterSecureStorage();
-    final passcode = await storage.read(key: StorageKeys.passcode);
-    if (!mounted) return;
-    if (passcode != null && passcode.isNotEmpty) {
-      Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (r) => false);
-    } else {
-      Navigator.of(context).pushReplacementNamed('/auth/create-passcode', arguments: true);
+    try {
+      const storage = FlutterSecureStorage();
+      final passcode = await storage.read(key: StorageKeys.passcode);
+      if (!mounted) return;
+      if (passcode != null && passcode.isNotEmpty) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/dashboard', (r) => false);
+      } else {
+        Navigator.of(context).pushReplacementNamed('/auth/create-passcode', arguments: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isGoogleLoading = false;
+          _isAppleLoading = false;
+        });
+        TopSnackbar.error(context, ErrorMessageFormatter.format(e));
+      }
     }
   }
 }
