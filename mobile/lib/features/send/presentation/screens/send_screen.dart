@@ -10,6 +10,7 @@ import 'package:stakk_savings/providers/auth_provider.dart';
 import 'package:stakk_savings/features/send/presentation/screens/send_p2p_screen.dart';
 import 'package:stakk_savings/features/send/presentation/screens/p2p_history_screen.dart';
 import 'package:stakk_savings/features/send/presentation/widgets/send_skeleton_loader.dart';
+import 'package:stakk_savings/services/cache_service.dart';
 
 /// Send tab: P2P transfers, send to Stellar, request money, recent recipients
 class SendScreen extends StatefulWidget {
@@ -23,19 +24,67 @@ class _SendScreenState extends State<SendScreen> {
   WalletBalance? _balance;
   List<P2pTransfer> _recentTransfers = [];
   bool _loading = true;
+  bool _refreshing = false;
   String? _error;
+  final _cacheService = CacheService();
 
   @override
   void initState() {
     super.initState();
+    _loadWithCache();
+  }
+
+  /// Load cached data first, then refresh in background
+  Future<void> _loadWithCache() async {
+    if (!mounted) return;
+    
+    // Try to load cached data first
+    await _loadFromCache();
+    
+    // Then refresh from API in background
     _load();
   }
 
+  /// Load data from cache if available
+  Future<void> _loadFromCache() async {
+    try {
+      final cachedBalance = await _cacheService.getBalance();
+      final cachedP2p = await _cacheService.getP2pHistory();
+      
+      if (cachedBalance != null) {
+        final balance = WalletBalance.fromJson({
+          'database_balance': {'usdc': cachedBalance['usdc']},
+          'stellar_address': cachedBalance['stellar_address'],
+        });
+        
+        final p2pTransfers = cachedP2p?.map((p) => P2pTransfer.fromJson(p)).take(5).toList() ?? [];
+        
+        if (mounted) {
+          setState(() {
+            _balance = balance;
+            _recentTransfers = p2pTransfers;
+            _loading = false; // Show cached data immediately
+          });
+        }
+      }
+    } catch (e) {
+      // Silently fail - cache is optional
+      print('Failed to load send data from cache: $e');
+    }
+  }
+
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (_balance == null) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    } else {
+      setState(() {
+        _refreshing = true;
+      });
+    }
+    
     try {
       final auth = context.read<AuthProvider>();
       final results = await Future.wait([
@@ -43,10 +92,36 @@ class _SendScreenState extends State<SendScreen> {
         auth.p2pGetHistory().catchError((_) => <P2pTransfer>[]),
       ]);
       if (mounted) {
+        final balance = results[0] as WalletBalance;
+        final allTransfers = results[1] as List<P2pTransfer>;
+        final recentTransfers = allTransfers.take(5).toList();
+        
+        // Cache the fresh data
+        await _cacheService.setBalance({
+          'usdc': balance.usdc,
+          'stellar_address': balance.stellarAddress,
+        });
+        await _cacheService.setP2pHistory(
+          allTransfers.map((p) => {
+            'id': p.id,
+            'amount_usdc': p.amountUsdc,
+            'fee_usdc': p.feeUsdc,
+            'status': p.status,
+            'note': p.note,
+            'created_at': p.createdAt,
+            'direction': p.direction,
+            'other_user': {
+              'phone_number': p.otherPhone,
+              'email': p.otherEmail,
+            },
+          }).toList(),
+        );
+        
         setState(() {
-          _balance = results[0] as WalletBalance;
-          _recentTransfers = (results[1] as List<P2pTransfer>).take(5).toList();
+          _balance = balance;
+          _recentTransfers = recentTransfers;
           _loading = false;
+          _refreshing = false;
         });
       }
     } on ApiException catch (e) {
@@ -54,6 +129,7 @@ class _SendScreenState extends State<SendScreen> {
         setState(() {
           _error = e.message;
           _loading = false;
+          _refreshing = false;
         });
       }
     } catch (_) {
@@ -61,6 +137,7 @@ class _SendScreenState extends State<SendScreen> {
         setState(() {
           _error = 'Failed to load';
           _loading = false;
+          _refreshing = false;
         });
       }
     }

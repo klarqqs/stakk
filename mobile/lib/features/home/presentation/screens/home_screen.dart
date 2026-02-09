@@ -22,6 +22,7 @@ import 'package:stakk_savings/features/home/presentation/widgets/home_skeleton_l
 import 'package:stakk_savings/features/send/presentation/screens/p2p_history_screen.dart';
 import 'package:stakk_savings/features/send/presentation/screens/send_p2p_screen.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
+import 'package:stakk_savings/services/cache_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,6 +33,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _loading = true;
+  bool _refreshing = false;
   String? _error;
   WalletBalance? _balance;
   List<Transaction> _transactions = [];
@@ -40,20 +42,90 @@ class _HomeScreenState extends State<HomeScreen> {
   BlendEarningsResponse? _blendEarnings;
   BlendApyResponse? _blendApy;
   List<SavingsGoal> _goals = [];
+  final _cacheService = CacheService();
 
   @override
   void initState() {
     super.initState();
+    _loadWithCache();
+  }
+
+  /// Load cached data first, then refresh in background
+  Future<void> _loadWithCache() async {
+    if (!mounted) return;
+    
+    // Try to load cached data first
+    await _loadFromCache();
+    
+    // Then refresh from API in background
     _load();
   }
 
+  /// Load data from cache if available
+  Future<void> _loadFromCache() async {
+    try {
+      final cachedBalance = await _cacheService.getBalance();
+      if (cachedBalance != null) {
+        final balance = WalletBalance.fromJson({
+          'database_balance': {'usdc': cachedBalance['usdc']},
+          'stellar_address': cachedBalance['stellar_address'],
+        });
+        
+        final cachedTransactions = await _cacheService.getTransactions();
+        final transactions = cachedTransactions?.map((t) => Transaction.fromJson(t)).toList() ?? [];
+        
+        final cachedP2p = await _cacheService.getP2pHistory();
+        final p2pTransfers = cachedP2p?.map((p) => P2pTransfer.fromJson(p)).toList() ?? [];
+        
+        final cachedNotifications = await _cacheService.getNotifications();
+        
+        final cachedBlendEarnings = await _cacheService.getBlendEarnings();
+        final blendEarnings = cachedBlendEarnings != null 
+            ? BlendEarningsResponse.fromJson(cachedBlendEarnings) 
+            : null;
+        
+        final cachedBlendApy = await _cacheService.getBlendApy();
+        final blendApy = cachedBlendApy != null 
+            ? BlendApyResponse.fromJson(cachedBlendApy) 
+            : null;
+        
+        final cachedGoals = await _cacheService.getGoals();
+        final goals = cachedGoals?.map((g) => SavingsGoal.fromJson(g)).toList() ?? [];
+        
+        if (mounted) {
+          setState(() {
+            _balance = balance;
+            _transactions = transactions;
+            _p2pTransfers = p2pTransfers;
+            _unreadNotifications = cachedNotifications ?? 0;
+            _blendEarnings = blendEarnings;
+            _blendApy = blendApy;
+            _goals = goals;
+            _loading = false; // Show cached data immediately
+          });
+        }
+      }
+    } catch (e) {
+      // Silently fail - cache is optional
+      print('Failed to load from cache: $e');
+    }
+  }
+
+  /// Load fresh data from API
   Future<void> _load() async {
     if (!mounted) return;
     
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    // Only show loading spinner if we don't have cached data
+    if (_balance == null) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    } else {
+      setState(() {
+        _refreshing = true;
+      });
+    }
 
     try {
       final auth = context.read<AuthProvider>();
@@ -79,15 +151,35 @@ class _HomeScreenState extends State<HomeScreen> {
       
       if (!mounted) return;
       
+      final balance = results[0] as WalletBalance;
+      final transactionsResponse = results[1] as TransactionsResponse;
+      final p2pTransfers = results[2] as List<P2pTransfer>;
+      final unreadNotifications = results[3] as int;
+      final blendEarnings = results[4] as BlendEarningsResponse?;
+      final blendApy = results[5] as BlendApyResponse?;
+      final goals = results[6] as List<SavingsGoal>;
+      
+      // Cache the fresh data
+      await _cacheData(
+        balance: balance,
+        transactions: transactionsResponse.transactions,
+        p2pTransfers: p2pTransfers,
+        unreadNotifications: unreadNotifications,
+        blendEarnings: blendEarnings,
+        blendApy: blendApy,
+        goals: goals,
+      );
+      
       setState(() {
-        _balance = results[0] as WalletBalance;
-        _transactions = (results[1] as TransactionsResponse).transactions;
-        _p2pTransfers = results[2] as List<P2pTransfer>;
-        _unreadNotifications = results[3] as int;
-        _blendEarnings = results[4] as BlendEarningsResponse?;
-        _blendApy = results[5] as BlendApyResponse?;
-        _goals = results[6] as List<SavingsGoal>;
+        _balance = balance;
+        _transactions = transactionsResponse.transactions;
+        _p2pTransfers = p2pTransfers;
+        _unreadNotifications = unreadNotifications;
+        _blendEarnings = blendEarnings;
+        _blendApy = blendApy;
+        _goals = goals;
         _loading = false;
+        _refreshing = false;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -97,6 +189,7 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _error = e.message;
           _loading = false;
+          _refreshing = false;
         });
       }
     } catch (e) {
@@ -104,7 +197,86 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _error = 'Failed to load data';
         _loading = false;
+        _refreshing = false;
       });
+    }
+  }
+
+  /// Cache data for future use
+  Future<void> _cacheData({
+    required WalletBalance balance,
+    required List<Transaction> transactions,
+    required List<P2pTransfer> p2pTransfers,
+    required int unreadNotifications,
+    BlendEarningsResponse? blendEarnings,
+    BlendApyResponse? blendApy,
+    required List<SavingsGoal> goals,
+  }) async {
+    try {
+      await _cacheService.setBalance({
+        'usdc': balance.usdc,
+        'stellar_address': balance.stellarAddress,
+      });
+      
+      await _cacheService.setTransactions(
+        transactions.map((t) => {
+          'id': t.id,
+          'type': t.type,
+          'amount_naira': t.amountNaira,
+          'amount_usdc': t.amountUsdc,
+          'status': t.status,
+          'created_at': t.createdAt,
+        }).toList(),
+      );
+      
+      await _cacheService.setP2pHistory(
+        p2pTransfers.map((p) => {
+          'id': p.id,
+          'amount_usdc': p.amountUsdc,
+          'fee_usdc': p.feeUsdc,
+          'status': p.status,
+          'note': p.note,
+          'created_at': p.createdAt,
+          'direction': p.direction,
+          'other_user': {
+            'phone_number': p.otherPhone,
+            'email': p.otherEmail,
+          },
+        }).toList(),
+      );
+      
+      await _cacheService.setNotifications(unreadNotifications);
+      
+      if (blendEarnings != null) {
+        await _cacheService.setBlendEarnings({
+          'supplied': blendEarnings.supplied,
+          'earned': blendEarnings.earned,
+          'currentAPY': blendEarnings.currentAPY,
+          'totalValue': blendEarnings.totalValue,
+          'isEarning': blendEarnings.isEarning,
+        });
+      }
+      
+      if (blendApy != null) {
+        await _cacheService.setBlendApy({
+          'apy': blendApy.apy,
+          'raw': blendApy.raw,
+        });
+      }
+      
+      await _cacheService.setGoals(
+        goals.map((g) => {
+          'id': g.id,
+          'name': g.name,
+          'target_amount': g.targetAmount,
+          'current_amount': g.currentAmount,
+          'deadline': g.deadline,
+          'status': g.status,
+        }).toList(),
+      );
+    } catch (e) {
+      // Silently fail - caching is not critical
+      print('Failed to cache data: $e');
     }
   }
 

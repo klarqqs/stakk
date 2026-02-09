@@ -10,6 +10,7 @@ import 'package:stakk_savings/features/bills/domain/models/bill_models.dart';
 import 'package:stakk_savings/features/bills/presentation/screens/bills_providers_screen.dart';
 import 'package:stakk_savings/features/bills/presentation/widgets/bills_skeleton_loader.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
+import 'package:stakk_savings/services/cache_service.dart';
 
 /// Bills tab: Quick pay (Airtime, Data, DSTV, Electricity), categories, presets
 class BillsScreen extends StatefulWidget {
@@ -22,8 +23,10 @@ class BillsScreen extends StatefulWidget {
 class _BillsScreenState extends State<BillsScreen> {
   List<BillCategoryModel> _categories = [];
   bool _loading = true;
+  bool _refreshing = false;
   String? _error;
   WalletBalance? _balance;
+  final _cacheService = CacheService();
 
   static const _quickPayItems = [
     ('Airtime', Icons.phone_android, 'AIRTIME'),
@@ -37,14 +40,59 @@ class _BillsScreenState extends State<BillsScreen> {
   @override
   void initState() {
     super.initState();
+    _loadWithCache();
+  }
+
+  /// Load cached data first, then refresh in background
+  Future<void> _loadWithCache() async {
+    if (!mounted) return;
+    
+    // Try to load cached data first
+    await _loadFromCache();
+    
+    // Then refresh from API in background
     _load();
   }
 
+  /// Load data from cache if available
+  Future<void> _loadFromCache() async {
+    try {
+      final cachedCategories = await _cacheService.getBillCategories();
+      final cachedBalance = await _cacheService.getBalance();
+      
+      if (cachedCategories != null && cachedBalance != null) {
+        final categories = cachedCategories.map((c) => BillCategoryModel.fromJson(c)).toList();
+        final balance = WalletBalance.fromJson({
+          'database_balance': {'usdc': cachedBalance['usdc']},
+          'stellar_address': cachedBalance['stellar_address'],
+        });
+        
+        if (mounted) {
+          setState(() {
+            _categories = categories;
+            _balance = balance;
+            _loading = false; // Show cached data immediately
+          });
+        }
+      }
+    } catch (e) {
+      // Silently fail - cache is optional
+      print('Failed to load bills from cache: $e');
+    }
+  }
+
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (_categories.isEmpty || _balance == null) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    } else {
+      setState(() {
+        _refreshing = true;
+      });
+    }
+    
     try {
       final auth = context.read<AuthProvider>();
       final results = await Future.wait([
@@ -52,10 +100,28 @@ class _BillsScreenState extends State<BillsScreen> {
         auth.getBalance(),
       ]);
       if (mounted) {
+        final categories = results[0] as List<BillCategoryModel>;
+        final balance = results[1] as WalletBalance;
+        
+        // Cache the fresh data
+        await _cacheService.setBillCategories(
+          categories.map((c) => {
+            'id': c.id,
+            'code': c.code,
+            'name': c.name,
+            'description': c.description,
+          }).toList(),
+        );
+        await _cacheService.setBalance({
+          'usdc': balance.usdc,
+          'stellar_address': balance.stellarAddress,
+        });
+        
         setState(() {
-          _categories = results[0] as List<BillCategoryModel>;
-          _balance = results[1] as WalletBalance;
+          _categories = categories;
+          _balance = balance;
           _loading = false;
+          _refreshing = false;
         });
       }
     } on ApiException catch (e) {
@@ -66,6 +132,7 @@ class _BillsScreenState extends State<BillsScreen> {
           setState(() {
             _error = e.message;
             _loading = false;
+            _refreshing = false;
           });
         }
       }
@@ -74,6 +141,7 @@ class _BillsScreenState extends State<BillsScreen> {
         setState(() {
           _error = 'Failed to load';
           _loading = false;
+          _refreshing = false;
         });
       }
     }

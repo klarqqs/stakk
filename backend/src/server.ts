@@ -36,6 +36,10 @@ try {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Trust proxy - required for Railway and other platforms that use reverse proxies
+// This allows express-rate-limit to correctly identify client IPs from X-Forwarded-For headers
+app.set('trust proxy', true);
+
 // Note: Sentry v8 auto-instruments Express when initialized
 // No need for requestHandler() or tracingHandler() middleware
 

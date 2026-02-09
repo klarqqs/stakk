@@ -402,9 +402,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             if (_isLoading)
               Container(
                 color: Colors.black.withOpacity(0.1),
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                // child: const Center(
+                //   child: CircularProgressIndicator(),
+                // ),
               ),
           ],
         ),

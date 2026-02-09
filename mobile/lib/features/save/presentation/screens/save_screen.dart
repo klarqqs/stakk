@@ -10,6 +10,7 @@ import 'package:stakk_savings/features/goals/presentation/screens/goals_screen.d
 import 'package:stakk_savings/core/utils/snackbar_utils.dart';
 import 'package:stakk_savings/features/lock/presentation/screens/lock_screen.dart';
 import 'package:stakk_savings/features/save/presentation/widgets/save_skeleton_loader.dart';
+import 'package:stakk_savings/services/cache_service.dart';
 
 /// Save tab: Goals, Lock savings, Ajo (group savings)
 class SaveScreen extends StatefulWidget {
@@ -24,19 +25,66 @@ class _SaveScreenState extends State<SaveScreen> {
   List<LockedSaving> _locks = [];
   double _balance = 0;
   bool _loading = true;
+  bool _refreshing = false;
   String? _error;
+  final _cacheService = CacheService();
 
   @override
   void initState() {
     super.initState();
+    _loadWithCache();
+  }
+
+  /// Load cached data first, then refresh in background
+  Future<void> _loadWithCache() async {
+    if (!mounted) return;
+    
+    // Try to load cached data first
+    await _loadFromCache();
+    
+    // Then refresh from API in background
     _load();
   }
 
+  /// Load data from cache if available
+  Future<void> _loadFromCache() async {
+    try {
+      final cachedBalance = await _cacheService.getBalance();
+      final cachedGoals = await _cacheService.getGoals();
+      final cachedLocks = await _cacheService.getLocks();
+      
+      if (cachedBalance != null) {
+        final balance = (cachedBalance['usdc'] as num).toDouble();
+        final goals = cachedGoals?.map((g) => SavingsGoal.fromJson(g)).toList() ?? [];
+        final locks = cachedLocks?.map((l) => LockedSaving.fromJson(l)).toList() ?? [];
+        
+        if (mounted) {
+          setState(() {
+            _balance = balance;
+            _goals = goals;
+            _locks = locks;
+            _loading = false; // Show cached data immediately
+          });
+        }
+      }
+    } catch (e) {
+      // Silently fail - cache is optional
+      print('Failed to load save data from cache: $e');
+    }
+  }
+
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (_balance == 0 && _goals.isEmpty && _locks.isEmpty) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    } else {
+      setState(() {
+        _refreshing = true;
+      });
+    }
+    
     try {
       final auth = context.read<AuthProvider>();
       final results = await Future.wait([
@@ -45,11 +93,44 @@ class _SaveScreenState extends State<SaveScreen> {
         auth.lockedGetAll().catchError((_) => <LockedSaving>[]),
       ]);
       if (mounted) {
+        final balance = (results[0] as WalletBalance).usdc;
+        final goals = results[1] as List<SavingsGoal>;
+        final locks = results[2] as List<LockedSaving>;
+        
+        // Cache the fresh data
+        await _cacheService.setBalance({
+          'usdc': balance,
+          'stellar_address': (results[0] as WalletBalance).stellarAddress,
+        });
+        await _cacheService.setGoals(
+          goals.map((g) => {
+            'id': g.id,
+            'name': g.name,
+            'target_amount': g.targetAmount,
+            'current_amount': g.currentAmount,
+            'deadline': g.deadline,
+            'status': g.status,
+          }).toList(),
+        );
+        await _cacheService.setLocks(
+          locks.map((l) => {
+            'id': l.id,
+            'amount_usdc': l.amountUsdc,
+            'lock_duration': l.lockDuration,
+            'apy_rate': l.apyRate,
+            'start_date': l.startDate,
+            'maturity_date': l.maturityDate,
+            'status': l.status,
+            'interest_earned': l.interestEarned,
+          }).toList(),
+        );
+        
         setState(() {
-          _balance = (results[0] as WalletBalance).usdc;
-          _goals = results[1] as List<SavingsGoal>;
-          _locks = results[2] as List<LockedSaving>;
+          _balance = balance;
+          _goals = goals;
+          _locks = locks;
           _loading = false;
+          _refreshing = false;
         });
       }
     } on ApiException catch (e) {
@@ -57,6 +138,7 @@ class _SaveScreenState extends State<SaveScreen> {
         setState(() {
           _error = e.message;
           _loading = false;
+          _refreshing = false;
         });
       }
     } catch (_) {
@@ -64,6 +146,7 @@ class _SaveScreenState extends State<SaveScreen> {
         setState(() {
           _error = 'Failed to load';
           _loading = false;
+          _refreshing = false;
         });
       }
     }
