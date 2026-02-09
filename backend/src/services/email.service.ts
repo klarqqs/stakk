@@ -2,6 +2,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -157,3 +159,80 @@ export const EmailCategories = {
   BILLING: 'billing',
   SECURITY: 'security',
 } as const;
+
+/**
+ * Send OTP email using the configured email service
+ */
+export async function sendOTPEmail(
+  email: string,
+  code: string,
+  purpose: 'signup' | 'login' | 'password_reset'
+): Promise<void> {
+  const emailService = process.env.EMAIL_SERVICE || 'resend';
+  const emailFrom = process.env.EMAIL_FROM || 'STAKK <onboarding@resend.dev>';
+  const OTP_EXPIRY_MINUTES = 5;
+
+  // Map purpose to template
+  const templateMap: Record<string, string> = {
+    signup: 'auth/email-verification',
+    login: 'auth/resend-otp',
+    password_reset: 'auth/password-reset-request',
+  };
+
+  const templateName = templateMap[purpose] || 'auth/resend-otp';
+  const subject = getEmailSubject(templateName);
+
+  // Render email template
+  const html = renderEmailTemplate(templateName, {
+    email,
+    otpCode: code,
+    expiryMinutes: OTP_EXPIRY_MINUTES,
+  });
+
+  // Send email based on configured service
+  if (emailService === 'resend') {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY is required when EMAIL_SERVICE=resend');
+    }
+
+    const resend = new Resend(apiKey);
+    const result = await resend.emails.send({
+      from: emailFrom,
+      to: email,
+      subject,
+      html,
+    });
+
+    if (result.error) {
+      throw new Error(`Resend error: ${result.error.message || JSON.stringify(result.error)}`);
+    }
+  } else if (emailService === 'sendgrid') {
+    // TODO: Implement SendGrid if needed
+    throw new Error('SendGrid integration not yet implemented');
+  } else if (emailService === 'gmail') {
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPassword = process.env.GMAIL_APP_PASSWORD;
+
+    if (!gmailUser || !gmailPassword) {
+      throw new Error('GMAIL_USER and GMAIL_APP_PASSWORD are required when EMAIL_SERVICE=gmail');
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: gmailUser,
+        pass: gmailPassword,
+      },
+    });
+
+    await transporter.sendMail({
+      from: emailFrom,
+      to: email,
+      subject,
+      html,
+    });
+  } else {
+    throw new Error(`Unsupported EMAIL_SERVICE: ${emailService}. Use 'resend', 'sendgrid', or 'gmail'`);
+  }
+}
