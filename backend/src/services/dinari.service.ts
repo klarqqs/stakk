@@ -523,9 +523,35 @@ class DinariService {
         throw new Error('Dinari account ID is required. Please ensure DINARI_ENTITY_ID or DINARI_SANDBOX_ACCOUNT_ID is set.');
       }
 
+      // Ensure wallet is connected before placing order (required for trading)
+      // Retry wallet connection if needed
+      let walletConnected = false;
+      try {
+        const existingWallet = await this.getWallet(accountId);
+        if (existingWallet && existingWallet.address === params.walletAddress) {
+          walletConnected = true;
+          console.log(`✅ Wallet already connected to account ${accountId.substring(0, 8)}...`);
+        }
+      } catch (walletCheckError: any) {
+        // Wallet check might fail for empty accounts - try connecting
+        console.log(`ℹ️  Wallet check returned: ${walletCheckError.message}, attempting to connect...`);
+      }
+
+      if (!walletConnected) {
+        try {
+          console.log(`🔗 Connecting wallet ${params.walletAddress.substring(0, 8)}... to account ${accountId.substring(0, 8)}... before placing order`);
+          await this.connectWallet(accountId, params.walletAddress);
+          walletConnected = true;
+          console.log(`✅ Wallet connected successfully`);
+        } catch (connectError: any) {
+          // If connection fails, log but continue - some accounts might work without explicit connection
+          console.warn(`⚠️  Wallet connection failed: ${connectError.message}`);
+          console.warn(`⚠️  Attempting to place order anyway - account might support trading without explicit wallet connection`);
+        }
+      }
+
       // Place buy order with Dinari
       // Dinari API v2 endpoint: POST /orders
-      // For sandbox, account_id should be the shared sandbox account ID
       const orderPayload = {
         account_id: accountId,
         symbol: params.ticker.toUpperCase(),
@@ -536,32 +562,46 @@ class DinariService {
       };
 
       console.log(`🔵 Placing buy order:`, {
-        accountId: accountId.substring(0, 8) + '...',
+        accountId: accountId,
         ticker: params.ticker.toUpperCase(),
         amountUSD: params.amountUSD,
+        walletAddress: params.walletAddress.substring(0, 8) + '...',
+        walletConnected: walletConnected,
         environment: this.environment,
       });
 
       const orderResponse = await this.client.post('/orders', orderPayload);
 
+      console.log(`✅ Order placed successfully:`, {
+        orderId: orderResponse.data?.id || orderResponse.data?.order_id,
+        status: orderResponse.data?.status,
+      });
+
       return orderResponse.data;
     } catch (error: any) {
       const errorData = error.response?.data || {};
       const statusCode = error.response?.status;
+      const requestUrl = error.config?.url || '/orders';
       
-      console.error('Dinari API error (buyStock):', {
+      console.error('❌ Dinari API error (buyStock):', {
         status: statusCode,
+        url: requestUrl,
+        method: error.config?.method?.toUpperCase(),
         error: errorData,
         message: error.message,
-        accountId: params.userId ? 'present' : 'missing',
+        accountId: await this.getOrCreateAccount(params.userId, params.walletAddress).catch(() => 'unknown'),
         environment: this.environment,
+        fullError: error.response ? JSON.stringify(error.response.data, null, 2) : error.message,
       });
 
       // Provide more specific error messages
       if (statusCode === 404) {
+        const accountId = await this.getOrCreateAccount(params.userId, params.walletAddress).catch(() => 'unknown');
         throw new Error(
-          `Account not found (404). Please ensure DINARI_SANDBOX_ACCOUNT_ID is set correctly for sandbox, or create an account via Dinari API. ` +
-          `Current account ID: ${await this.getOrCreateAccount(params.userId, params.walletAddress).catch(() => 'unknown')}`
+          `Account not found (404) when placing order. ` +
+          `Account ID: ${accountId}. ` +
+          `This might mean: 1) Account doesn't exist in Dinari, 2) Account needs wallet connected, 3) Account needs to be activated. ` +
+          `Check Dinari dashboard to verify account ${accountId} exists and has a wallet connected.`
         );
       }
 
