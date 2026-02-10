@@ -280,9 +280,10 @@ class DinariService {
         }
       }
 
-      // Ensure wallet is connected to account if wallet address provided
-      // This ensures users' Stellar wallets are properly linked to their Dinari accounts
-      if (walletAddress) {
+      // For sandbox: Skip wallet connection for shared accounts
+      // Sandbox accounts may be managed accounts that don't require wallet connection
+      // Wallet connection is only needed for production per-user accounts
+      if (walletAddress && this.environment !== 'sandbox') {
         try {
           const existingWallet = await this.getWallet(accountId);
           if (!existingWallet || existingWallet.address !== walletAddress) {
@@ -305,6 +306,8 @@ class DinariService {
           // Wallet connection can be retried on next trade
           console.warn(`Wallet check note: ${walletError.message}`);
         }
+      } else if (this.environment === 'sandbox') {
+        console.log(`ℹ️  Sandbox mode: Using shared account, wallet connection skipped`);
       }
 
       return accountId;
