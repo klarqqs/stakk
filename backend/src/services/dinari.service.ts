@@ -15,10 +15,31 @@ class DinariService {
   private environment: string;
 
   constructor() {
+    // Try both possible env var names for API secret
     this.apiKeyId = process.env.DINARI_API_KEY_ID || '';
-    this.apiSecret = process.env.DINARI_API_SECRET || '';
+    this.apiSecret = process.env.DINARI_API_SECRET || process.env.DINARI_API_SECRET_KEY || '';
     this.entityId = process.env.DINARI_ENTITY_ID || '';
     this.environment = process.env.DINARI_ENVIRONMENT || 'sandbox';
+
+    // Trim whitespace from credentials
+    this.apiKeyId = this.apiKeyId.trim();
+    this.apiSecret = this.apiSecret.trim();
+    this.entityId = this.entityId.trim();
+
+    // Validate credentials
+    if (!this.apiKeyId || !this.apiSecret) {
+      console.error('❌ Dinari API credentials missing!');
+      console.error('   Required: DINARI_API_KEY_ID, DINARI_API_SECRET (or DINARI_API_SECRET_KEY)');
+      console.error(`   API Key ID present: ${!!this.apiKeyId} (length: ${this.apiKeyId.length})`);
+      console.error(`   API Secret present: ${!!this.apiSecret} (length: ${this.apiSecret.length})`);
+      console.error(`   Checked: DINARI_API_SECRET=${!!process.env.DINARI_API_SECRET}, DINARI_API_SECRET_KEY=${!!process.env.DINARI_API_SECRET_KEY}`);
+    } else {
+      console.log('✅ Dinari API credentials loaded');
+      console.log(`   Environment: ${this.environment}`);
+      console.log(`   API Key ID: ${this.apiKeyId.substring(0, 8)}... (length: ${this.apiKeyId.length})`);
+      console.log(`   API Secret: ***${this.apiSecret.substring(this.apiSecret.length - 4)} (length: ${this.apiSecret.length})`);
+      console.log(`   Entity ID: ${this.entityId || 'not set'}`);
+    }
 
     // Dinari API base URLs
     // Documentation: https://docs.dinari.com/reference/environments
@@ -35,10 +56,36 @@ class DinariService {
         'X-API-Key-Id': this.apiKeyId,
         'X-API-Secret-Key': this.apiSecret,
         'Accept': 'application/json',
-        'Content-Type': 'application/json',
       },
       timeout: 30000, // 30 seconds
     });
+
+    // Add request interceptor to:
+    // 1. Set Content-Type only for POST/PUT/PATCH requests
+    // 2. Log request details for debugging
+    this.client.interceptors.request.use(
+      (config) => {
+        // Set Content-Type only for POST/PUT/PATCH requests
+        if (config.method && ['post', 'put', 'patch'].includes(config.method.toLowerCase())) {
+          config.headers['Content-Type'] = 'application/json';
+        }
+
+        // Log request details (without exposing secrets)
+        console.log('🔵 Dinari API Request:', {
+          method: config.method?.toUpperCase(),
+          url: config.url,
+          baseURL: config.baseURL,
+          headers: {
+            'X-API-Key-Id': config.headers['X-API-Key-Id'] ? `${config.headers['X-API-Key-Id'].toString().substring(0, 8)}...` : 'missing',
+            'X-API-Secret-Key': config.headers['X-API-Secret-Key'] ? '***present***' : 'missing',
+            'Accept': config.headers['Accept'],
+            'Content-Type': config.headers['Content-Type'] || 'not set',
+          },
+        });
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
   }
 
   /**
@@ -47,7 +94,8 @@ class DinariService {
   async getAvailableStocks() {
     try {
       // Dinari API v2 endpoint for stocks: /market_data/stocks/
-      const response = await this.client.get('/market_data/stocks/');
+      // Try without trailing slash first, then with if needed
+      const response = await this.client.get('/market_data/stocks');
       return response.data;
     } catch (error: any) {
       const errorMessage = error.response?.data?.error?.message ||
@@ -59,9 +107,15 @@ class DinariService {
       console.error('Dinari API error (getAvailableStocks):', {
         message: errorMessage,
         code: error.code,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
         response: error.response?.data,
         url: error.config?.url,
         baseURL: error.config?.baseURL,
+        headersSent: {
+          'X-API-Key-Id': error.config?.headers?.['X-API-Key-Id'] ? 'present' : 'missing',
+          'X-API-Secret-Key': error.config?.headers?.['X-API-Secret-Key'] ? 'present' : 'missing',
+        },
       });
       
       // If DNS error, suggest checking API URL

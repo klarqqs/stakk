@@ -175,8 +175,21 @@ app.listen(Number(PORT), '0.0.0.0', async () => {
   }
   
   // Dinari API validation
-  if (process.env.DINARI_API_KEY_ID && !process.env.DINARI_API_SECRET) {
-    console.warn('⚠️  DINARI_API_KEY_ID is set but DINARI_API_SECRET is missing. Stock trading will fail.');
+  const dinariKeyId = process.env.DINARI_API_KEY_ID;
+  const dinariSecret = process.env.DINARI_API_SECRET;
+  const dinariEntity = process.env.DINARI_ENTITY_ID;
+  const dinariEnv = process.env.DINARI_ENVIRONMENT || 'sandbox';
+  
+  if (!dinariKeyId || !dinariSecret) {
+    console.warn('⚠️  Dinari API credentials missing! Stock trading will fail.');
+    console.warn(`   DINARI_API_KEY_ID: ${dinariKeyId ? '✅ set' : '❌ missing'}`);
+    console.warn(`   DINARI_API_SECRET: ${dinariSecret ? '✅ set' : '❌ missing'}`);
+    console.warn(`   DINARI_ENTITY_ID: ${dinariEntity ? '✅ set' : '⚠️  not set (optional)'}`);
+    console.warn(`   DINARI_ENVIRONMENT: ${dinariEnv}`);
+  } else {
+    console.log('✅ Dinari API credentials configured');
+    console.log(`   Environment: ${dinariEnv}`);
+    console.log(`   Entity ID: ${dinariEntity || 'not set'}`);
   }
   
   console.log('✅ Server initialized successfully');
