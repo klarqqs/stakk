@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:stakk_savings/api/api_client.dart';
@@ -125,7 +126,7 @@ class _LockScreenState extends State<LockScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                          FaIcon(FontAwesomeIcons.circleExclamation, size: 48, color: AppColors.error),
                           const SizedBox(height: 16),
                           Text(_error!, textAlign: TextAlign.center),
                           const SizedBox(height: 16),
@@ -240,7 +241,7 @@ class _LockDurationCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.arrow_forward_ios_rounded, size: 12, color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight),
+                FaIcon(FontAwesomeIcons.chevronRight, size: 12, color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight),
               ],
             ),
           ),

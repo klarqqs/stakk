@@ -253,7 +253,7 @@ class _SendScreenState extends State<SendScreen> {
                       const SizedBox(height: 16),
                       if (_recentTransfers.isEmpty)
                         Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                           child: Center(
                             child: Text(
                               'No recent recipients.\nTap "Send to Stakk User" above to send.',

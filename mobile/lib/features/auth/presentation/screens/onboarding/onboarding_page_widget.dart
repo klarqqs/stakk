@@ -58,7 +58,7 @@ class OnboardingPageWidget extends StatelessWidget {
                   context: context,
                   fontSize: 36,
                   fontWeight: FontWeight.w800,
-                ),
+                ).copyWith(height: 1.1),
                 textAlign: TextAlign.center,
               )
               .animate()

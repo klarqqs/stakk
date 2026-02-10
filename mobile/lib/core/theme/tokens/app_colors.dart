@@ -16,9 +16,16 @@ class AppColors {
   static const Color surfaceDark = Color(0xFF1F2937);
   static const Color surfaceVariantLight = Color(0xFFF8FAFC);
   static const Color backgroundLight = Color(0xFFF1F5F9);
+  /// Dark theme scaffold: neutral black, matches home card surfaces (editorial dark)
+  static const Color backgroundDark = Color(0xFF0E0E10);
   static const Color surfaceVariantDark = Color(0xFF374151);
   /// Darker variant for cards in dark theme (less bright than surfaceVariantDark)
   static const Color surfaceVariantDarkMuted = Color(0xFF2D3748);
+  /// Premium card surface (editorial, high-fashion) – use for list tiles, cards
+  static const Color cardSurfaceLight = Color(0xFFFAFAFA);
+  static const Color cardSurfaceDark = Color(0xFF16161A);
+  /// Accent for premium CTAs (gold)
+  static const Color accentGold = Color(0xFFC9A962);
 
   // Glassmorphism
   static const Color glassLight = Color(0x1AFFFFFF);
@@ -30,8 +37,8 @@ class AppColors {
   static const Color textPrimaryLight = Color(0xFF0F172A);
   static const Color textPrimaryDark = Color(0xFFF8FAFC);
   static const Color textSecondaryLight = Color(0xFF64748B);
-  static const Color textSecondaryDark = Color(0xFF94A3B8);
-  static const Color textTertiaryLight = Color(0xFF94A3B8);
+  static const Color textSecondaryDark = Color.fromARGB(255, 161, 177, 200);
+  static const Color textTertiaryLight = Color.fromARGB(255, 123, 135, 153);
   static const Color textTertiaryDark = Color(0xFF64748B);
 
   // Borders

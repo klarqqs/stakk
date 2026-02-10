@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:stakk_savings/core/constants/storage_keys.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 
 class CreatePasscodeScreen extends StatefulWidget {
@@ -30,15 +28,14 @@ class _CreatePasscodeScreenState extends State<CreatePasscodeScreen> {
   }
 
   Future<void> _navigateToReenter() async {
-    await _storage.write(key: StorageKeys.tempPasscode, value: _passcode);
+    // Pass passcode as route argument to avoid FlutterSecureStorage sync issues
+    // (e.g. iOS keychain write may not persist before navigation)
     if (!mounted) return;
     Navigator.of(context).pushReplacementNamed(
       '/auth/reenter-passcode',
-      arguments: widget.isFromSignup,
+      arguments: _passcode,
     );
   }
-
-  final _storage = const FlutterSecureStorage();
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +43,7 @@ class _CreatePasscodeScreenState extends State<CreatePasscodeScreen> {
       body: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

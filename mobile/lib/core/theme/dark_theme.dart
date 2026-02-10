@@ -10,9 +10,9 @@ ThemeData get darkTheme {
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.primaryDark,
       brightness: Brightness.dark,
-      surface: AppColors.surfaceDark,
+      surface: AppColors.backgroundDark,
     ),
-    scaffoldBackgroundColor: AppColors.gradientStartDark,
+    scaffoldBackgroundColor: AppColors.backgroundDark,
     textTheme: GoogleFonts.fustatTextTheme(ThemeData.dark().textTheme),
     fontFamily: GoogleFonts.fustat().fontFamily,
     appBarTheme: AppBarTheme(

@@ -191,13 +191,23 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Google Sign-In
-  Future<void> signInWithGoogle(String idToken) async {
+  Future<void> signInWithGoogle({
+    required String idToken,
+    String? email,
+    String? firstName,
+    String? lastName,
+  }) async {
     try {
       AnalyticsService().addBreadcrumb(
         message: 'Google sign-in initiated',
         category: 'auth',
       );
-      final res = await _authService.signInWithGoogle(idToken);
+      final res = await _authService.signInWithGoogle(
+        idToken: idToken,
+        email: email,
+        firstName: firstName,
+        lastName: lastName,
+      );
       await _api.saveTokens(res.accessToken, res.refreshToken);
       _setUser(_authUserToUser(res.user));
       AnalyticsService().logLogin(method: 'google');
@@ -269,6 +279,11 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // Delete FCM token FIRST while token is still valid (before backend revokes it)
+    try {
+      await FCMService().deleteToken();
+    } catch (_) {}
+    // Now revoke on backend and clear local state
     try {
       final accessToken = await _api.getAccessToken();
       if (accessToken != null) {
@@ -277,10 +292,6 @@ class AuthProvider extends ChangeNotifier {
           refreshToken: await _api.getRefreshToken(),
         );
       }
-    } catch (_) {}
-    // Clear FCM token
-    try {
-      await FCMService().deleteToken();
     } catch (_) {}
     
     // Clear analytics and error tracking user context

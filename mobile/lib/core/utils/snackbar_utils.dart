@@ -159,3 +159,13 @@ void showTopSnackBar(
     );
   }
 }
+
+/// Convenience function for showing success snackbars.
+/// Alias for TopSnackbar.success().
+void showSnackBar(
+  BuildContext context,
+  String message, {
+  Duration duration = const Duration(seconds: 3),
+}) {
+  TopSnackbar.success(context, message, duration: duration);
+}

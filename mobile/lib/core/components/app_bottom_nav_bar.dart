@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../theme/tokens/app_colors.dart';
 import '../theme/tokens/app_radius.dart';
 
-enum AppTab { home, bills, send, save, more }
+enum AppTab { home, loan, wealth, reward, more }
 
 class AppBottomNavBar extends StatelessWidget {
   final AppTab currentTab;
@@ -30,42 +31,43 @@ class AppBottomNavBar extends StatelessWidget {
       ),
       child: SafeArea(
         top: false,
+        bottom: false,
         child: SizedBox(
-          height: 72,
+          height: 80,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _NavItem(
-                icon: Icons.home_outlined,
-                activeIcon: Icons.home_rounded,
+                icon: FontAwesomeIcons.house,
+                activeIcon: FontAwesomeIcons.house,
                 label: 'Home',
                 isActive: currentTab == AppTab.home,
                 onTap: () => onTabSelected(AppTab.home),
               ),
               _NavItem(
-                icon: Icons.receipt_long_outlined,
-                activeIcon: Icons.receipt_long_rounded,
-                label: 'Bills',
-                isActive: currentTab == AppTab.bills,
-                onTap: () => onTabSelected(AppTab.bills),
+                icon: FontAwesomeIcons.sackDollar,
+                activeIcon: FontAwesomeIcons.sackDollar,
+                label: 'Loan',
+                isActive: currentTab == AppTab.loan,
+                onTap: () => onTabSelected(AppTab.loan),
               ),
               _NavItem(
-                icon: Icons.send_outlined,
-                activeIcon: Icons.send_rounded,
-                label: 'Send',
-                isActive: currentTab == AppTab.send,
-                onTap: () => onTabSelected(AppTab.send),
+                icon: FontAwesomeIcons.chartLine,
+                activeIcon: FontAwesomeIcons.chartLine,
+                label: 'Wealth',
+                isActive: currentTab == AppTab.wealth,
+                onTap: () => onTabSelected(AppTab.wealth),
               ),
               _NavItem(
-                icon: Icons.savings_outlined,
-                activeIcon: Icons.savings_rounded,
-                label: 'Save',
-                isActive: currentTab == AppTab.save,
-                onTap: () => onTabSelected(AppTab.save),
+                icon: FontAwesomeIcons.gift,
+                activeIcon: FontAwesomeIcons.gift,
+                label: 'Reward',
+                isActive: currentTab == AppTab.reward,
+                onTap: () => onTabSelected(AppTab.reward),
               ),
               _NavItem(
-                icon: Icons.grid_view_outlined,
-                activeIcon: Icons.grid_view_rounded,
+                icon: FontAwesomeIcons.circleUser,
+                activeIcon: FontAwesomeIcons.circleUser,
                 label: 'More',
                 isActive: currentTab == AppTab.more,
                 onTap: () => onTabSelected(AppTab.more),
@@ -111,7 +113,7 @@ class _NavItem extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(isActive ? activeIcon : icon, size: 24, color: color),
+            FaIcon(isActive ? activeIcon : icon, size: 22, color: color),
             const SizedBox(height: 4),
             Text(
               label,

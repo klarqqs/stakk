@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/core/components/buttons/primary_button.dart';
@@ -89,7 +90,9 @@ class _GoalsScreenState extends State<GoalsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Savings Goals')),
+      appBar: AppBar(
+        title: Text('Savings Goals', style: AppTheme.title(context: context, fontSize: 18).copyWith(letterSpacing: -0.3)),
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
@@ -101,11 +104,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: AppColors.error,
-                      ),
+                      FaIcon(FontAwesomeIcons.circleExclamation, size: 48, color: AppColors.error),
                       const SizedBox(height: 16),
                       Text(
                         _error!,
@@ -132,10 +131,12 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 48),
                       child: Column(
                         children: [
-                          Icon(
-                            Icons.flag_outlined,
-                            size: 64,
-                            color: AppColors.textTertiaryLight,
+                          FaIcon(
+                            FontAwesomeIcons.bullseye,
+                            size: 56,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.textTertiaryDark
+                                : AppColors.textTertiaryLight,
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -174,7 +175,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
                     onPressed: _showCreateGoal,
-                    icon: const Icon(Icons.add),
+                    icon: const FaIcon(FontAwesomeIcons.plus, size: 18),
                     label: const Text('Create New Goal'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
@@ -205,6 +206,7 @@ class _GoalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = isDark ? AppColors.primaryDark : AppColors.primary;
+    final cardSurface = isDark ? AppColors.cardSurfaceDark : AppColors.cardSurfaceLight;
     final progress = goal.progress;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -216,16 +218,11 @@ class _GoalCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isDark ? AppColors.surfaceVariantDarkMuted : Colors.white,
+              color: cardSurface,
               borderRadius: BorderRadius.circular(AppRadius.xl),
-              border: Border.all(
-                color: isDark
-                    ? AppColors.borderDark.withValues(alpha: 0.4)
-                    : AppColors.borderLight.withValues(alpha: 0.6),
-              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                   blurRadius: 12,
                   offset: const Offset(0, 2),
                 ),
@@ -765,7 +762,7 @@ class _GoalDetailScreenState extends State<GoalDetailScreen> {
                   const SizedBox(height: 12),
                   if (_detail!.contributions.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Text(
                         'No contributions yet',
                         style: AppTheme.caption(context: context, fontSize: 14),

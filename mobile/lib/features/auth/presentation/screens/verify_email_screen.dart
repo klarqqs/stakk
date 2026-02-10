@@ -132,7 +132,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
       ),
       body: SafeArea(bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

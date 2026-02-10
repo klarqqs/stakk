@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -74,7 +75,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Referrals')),
+      appBar: AppBar(title: Text('Referrals', style: AppTheme.title(context: context, fontSize: 18).copyWith(letterSpacing: -0.3))),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
@@ -86,7 +87,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.error_outline, size: 48, color: AppColors.error),
+                          FaIcon(FontAwesomeIcons.circleExclamation, size: 48, color: AppColors.error),
                           const SizedBox(height: 16),
                           Text(_error!, textAlign: TextAlign.center),
                           const SizedBox(height: 16),
@@ -186,7 +187,7 @@ class _ReferralCodeCard extends StatelessWidget {
             children: [
               FilledButton.icon(
                 onPressed: onCopy,
-                icon: const Icon(Icons.copy, size: 18),
+                icon: const FaIcon(FontAwesomeIcons.copy, size: 18),
                 label: const Text('Copy'),
                 style: FilledButton.styleFrom(
                   backgroundColor: primary,
@@ -198,7 +199,7 @@ class _ReferralCodeCard extends StatelessWidget {
               const SizedBox(width: 12),
               OutlinedButton.icon(
                 onPressed: onShare,
-                icon: const Icon(Icons.share, size: 18),
+                icon: const FaIcon(FontAwesomeIcons.shareNodes, size: 18),
                 label: const Text('Share'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: primary,

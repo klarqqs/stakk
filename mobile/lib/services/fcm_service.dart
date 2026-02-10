@@ -103,10 +103,14 @@ class FCMService {
   }
 
   /// Delete device token (call on logout).
+  /// Uses silentOnAuthError to avoid triggering session expiry loop.
   Future<void> deleteToken() async {
     try {
       if (_currentToken != null) {
-        await ApiClient().notificationsDeleteDevice(token: _currentToken!);
+        await ApiClient().notificationsDeleteDevice(
+          token: _currentToken!,
+          silentOnAuthError: true,
+        );
         await _messaging.deleteToken();
         _currentToken = null;
         debugPrint('FCM: Token deleted successfully');

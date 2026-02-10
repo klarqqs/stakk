@@ -40,7 +40,7 @@ class AuthLayout extends StatelessWidget {
       child: SafeArea(bottom: false,
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: padding ?? const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          padding: padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           child: useGlass
               ? GlassCard(
                   padding: const EdgeInsets.all(24),

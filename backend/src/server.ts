@@ -17,6 +17,7 @@ import referralRoutes from './routes/referral.routes.ts';
 import transparencyRoutes from './routes/transparency.routes.ts';
 import notificationRoutes from './routes/notification.routes.ts';
 import appRoutes from './routes/app.routes.ts';
+import stocksRoutes from './routes/stocks.routes.ts';
 import { validateEnvironment, getCorsOrigins, checkForPlaceholderSecrets } from './config/env-validation.ts';
 
 dotenv.config();
@@ -110,6 +111,7 @@ app.use('/api/referrals', referralRoutes);
 app.use('/api/transparency', transparencyRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/app', appRoutes);
+app.use('/api/stocks', stocksRoutes);
 
 // Health check (Railway and other platforms)
 app.get('/health', (req, res) => {

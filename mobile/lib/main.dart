@@ -107,7 +107,10 @@ class StakkApp extends StatelessWidget {
                     final args = ModalRoute.of(context)?.settings.arguments;
                     return CreatePasscodeScreen(isFromSignup: args == true);
                   },
-                  '/auth/reenter-passcode': (context) => const ReenterPasscodeScreen(),
+                  '/auth/reenter-passcode': (context) {
+                    final args = ModalRoute.of(context)?.settings.arguments;
+                    return ReenterPasscodeScreen(expectedPasscode: args is String ? args : null);
+                  },
                   '/auth/passcode': (context) => const PasscodeGateScreen(),
                   '/auth/forgot-password': (context) => const ForgotPasswordScreen(),
                   '/auth/reset-password': (context) => const ResetPasswordScreen(),

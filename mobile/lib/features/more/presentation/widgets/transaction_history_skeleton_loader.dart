@@ -11,11 +11,20 @@ class TransactionHistorySkeletonLoader extends StatelessWidget {
     return ShimmerSkeleton(
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
           ...List.generate(6, (_) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: SkeletonBox(height: 72, borderRadius: AppRadius.lg),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withValues(alpha: 0.04)
+                    : const Color(0xFFFAFAFA),
+                borderRadius: BorderRadius.circular(AppRadius.lg),
+              ),
+              child: SkeletonBox(height: 56, borderRadius: AppRadius.sm),
+            ),
           )),
         ],
       ),

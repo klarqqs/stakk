@@ -12,11 +12,12 @@ class ShimmerSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseColor = isDark ? AppColors.surfaceVariantDarkMuted : AppColors.surfaceVariantLight;
-    final highlightColor = isDark ? AppColors.surfaceVariantDark : Colors.white;
+    final baseColor = isDark ? const Color(0xFF1A1A1E) : AppColors.surfaceVariantLight;
+    final highlightColor = isDark ? const Color(0xFF2A2A30) : Colors.white;
     return Shimmer.fromColors(
       baseColor: baseColor,
       highlightColor: highlightColor,
+      period: const Duration(milliseconds: 1200),
       child: child,
     );
   }
@@ -38,7 +39,7 @@ class SkeletonBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = isDark ? AppColors.surfaceVariantDarkMuted : AppColors.surfaceVariantLight;
+    final color = isDark ? const Color(0xFF1E1E22) : AppColors.surfaceVariantLight;
     return Container(
       width: width,
       height: height,

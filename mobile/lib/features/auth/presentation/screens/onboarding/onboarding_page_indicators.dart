@@ -16,20 +16,24 @@ class OnboardingPageIndicators extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final active = isDark ? AppColors.primaryDark : AppColors.primary;
-    final primaryGradientEnd = isDark ? AppColors.primaryDark : AppColors.primaryGradientEnd;
-    final inactive = isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight;
-    
+    final primaryGradientEnd = isDark
+        ? AppColors.primaryDark
+        : AppColors.primaryGradientEnd;
+    final inactive = isDark
+        ? AppColors.textTertiaryDark
+        : AppColors.textTertiaryLight;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(total, (i) {
         final isActive = page == i;
-        
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 450),
-          curve: Curves.easeOutCubic,
-          margin: EdgeInsets.symmetric(horizontal: isActive ? 6 : 4),
-          width: isActive ? 32 : 8,
-          height: 8,
+
+        return Container(
+          // duration: const Duration(milliseconds: 450),
+          // curve: Curves.easeOutCubic,
+          margin: EdgeInsets.symmetric(horizontal: isActive ? 5 : 3.5),
+          width: isActive ? 28 : 7,
+          height: 7,
           decoration: BoxDecoration(
             gradient: isActive
                 ? LinearGradient(

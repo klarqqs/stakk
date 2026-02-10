@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../config/env.dart';
 import '../features/bills/domain/models/bill_models.dart';
+import '../features/trading/domain/models/stock_models.dart';
 import '../core/utils/offline_handler.dart';
 import '../core/utils/error_message_formatter.dart';
 import '../services/error_tracking_service.dart';
@@ -941,7 +942,12 @@ class ApiClient {
     }
   }
 
-  Future<void> notificationsDeleteDevice({required String token}) async {
+  /// Delete FCM device token. Use [silentOnAuthError] when called from logout
+  /// to avoid triggering session expiry (which would cause logout loop).
+  Future<void> notificationsDeleteDevice({
+    required String token,
+    bool silentOnAuthError = false,
+  }) async {
     final res = await _requestWithRefresh(() async => http.post(
           Uri.parse('${Env.apiBaseUrl}/notifications/delete-device'),
           headers: await _headers(withAuth: true),
@@ -949,7 +955,7 @@ class ApiClient {
         ));
     if (_isAuthError(res.statusCode)) {
       await _clearTokens();
-      _handleSessionExpired();
+      if (!silentOnAuthError) _handleSessionExpired();
     }
   }
 
@@ -964,6 +970,113 @@ class ApiClient {
 
   Future<String?> getAccessToken() => _getAccessToken();
   Future<String?> getRefreshToken() => _getRefreshToken();
+
+  // Stock Trading (Dinari)
+  Future<List<Stock>> stocksGetAvailable() async {
+    final res = await _requestWithRefresh(() async => http.get(
+      Uri.parse('${Env.apiBaseUrl}/stocks/available'),
+      headers: await _headers(withAuth: false),
+    ));
+
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Failed to fetch stocks');
+    }
+
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final stocksList = body['stocks'] as List<dynamic>? ?? [];
+    return stocksList
+        .map((s) => Stock.fromJson(s as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<StockPrice> stocksGetPrice(String ticker) async {
+    final res = await _requestWithRefresh(() async => http.get(
+      Uri.parse('${Env.apiBaseUrl}/stocks/$ticker'),
+      headers: await _headers(withAuth: false),
+    ));
+
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Failed to fetch stock price');
+    }
+
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return StockPrice.fromJson(body);
+  }
+
+  Future<StockTrade> stocksBuy({
+    required String ticker,
+    required double amountUSD,
+  }) async {
+    final res = await _requestWithRefresh(() async => http.post(
+      Uri.parse('${Env.apiBaseUrl}/stocks/buy'),
+      headers: await _headers(withAuth: true),
+      body: jsonEncode({
+        'ticker': ticker,
+        'amountUSD': amountUSD,
+      }),
+    ));
+
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      _handleSessionExpired();
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Failed to buy stock');
+    }
+
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final order = body['order'] as Map<String, dynamic>? ?? body;
+    return StockTrade.fromJson(order);
+  }
+
+  Future<StockPortfolio> stocksGetPortfolio() async {
+    final res = await _requestWithRefresh(() async => http.get(
+      Uri.parse('${Env.apiBaseUrl}/stocks/portfolio/mine'),
+      headers: await _headers(withAuth: true),
+    ));
+
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      _handleSessionExpired();
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Failed to fetch portfolio');
+    }
+
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return StockPortfolio.fromJson(body);
+  }
+
+  Future<List<StockTrade>> stocksGetTradeHistory() async {
+    final res = await _requestWithRefresh(() async => http.get(
+      Uri.parse('${Env.apiBaseUrl}/stocks/trades/history'),
+      headers: await _headers(withAuth: true),
+    ));
+
+    if (_isAuthError(res.statusCode)) {
+      await _clearTokens();
+      _handleSessionExpired();
+    }
+    if (res.statusCode != 200) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>?;
+      final errorMsg = body?['error']?.toString() ?? body?['message']?.toString();
+      throw ApiException(errorMsg ?? 'Failed to fetch trade history');
+    }
+
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final tradesList = body['trades'] as List<dynamic>? ?? [];
+    return tradesList
+        .map((t) => StockTrade.fromJson(t as Map<String, dynamic>))
+        .toList();
+  }
 }
 
 class ApiException implements Exception {

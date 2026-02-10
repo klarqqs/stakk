@@ -5,9 +5,9 @@ import 'package:stakk_savings/widgets/force_update_dialog.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/services/app_version_service.dart';
 import 'package:stakk_savings/features/home/presentation/screens/home_screen.dart';
-import 'package:stakk_savings/features/bills/presentation/screens/bills_screen.dart';
-import 'package:stakk_savings/features/send/presentation/screens/send_screen.dart';
-import 'package:stakk_savings/features/save/presentation/screens/save_screen.dart';
+import 'package:stakk_savings/features/loan/presentation/screens/loan_screen.dart';
+import 'package:stakk_savings/features/wealth/presentation/screens/wealth_screen.dart';
+import 'package:stakk_savings/features/referrals/presentation/screens/referrals_screen.dart';
 import 'package:stakk_savings/features/more/presentation/screens/more_screen.dart';
 
 class DashboardShell extends StatefulWidget {
@@ -22,9 +22,9 @@ class _DashboardShellState extends State<DashboardShell> {
 
   final _screens = const [
     HomeScreen(),
-    BillsScreen(),
-    SendScreen(),
-    SaveScreen(),
+    LoanScreen(),
+    WealthScreen(),
+    ReferralsScreen(),
     MoreScreen(),
   ];
 
@@ -79,28 +79,9 @@ class _DashboardShellState extends State<DashboardShell> {
         child: Scaffold(
           backgroundColor: Colors.transparent,
           body: ConnectivityBanner(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0.05, 0),
-                      end: Offset.zero,
-                    ).animate(CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                    )),
-                    child: child,
-                  ),
-                );
-              },
-              child: IndexedStack(
-                key: ValueKey<int>(_currentTab.index),
-                index: _currentTab.index,
-                children: _screens,
-              ),
+            child: IndexedStack(
+              index: _currentTab.index,
+              children: _screens,
             ),
           ),
           bottomNavigationBar: AppBottomNavBar(

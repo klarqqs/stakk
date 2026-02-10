@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
@@ -9,6 +8,7 @@ import 'package:stakk_savings/features/bills/domain/models/bill_models.dart';
 import 'package:stakk_savings/features/bills/presentation/screens/bills_providers_screen.dart';
 import 'package:stakk_savings/features/bills/presentation/widgets/bills_categories_skeleton_loader.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
+import 'package:stakk_savings/services/cache_service.dart';
 
 class BillsCategoriesScreen extends StatefulWidget {
   const BillsCategoriesScreen({super.key});
@@ -22,28 +22,99 @@ class _BillsCategoriesScreenState extends State<BillsCategoriesScreen> {
   bool _loading = true;
   String? _error;
   WalletBalance? _balance;
+  final _cacheService = CacheService();
 
   @override
   void initState() {
     super.initState();
+    _loadWithCache();
+  }
+
+  /// Load cached data first, then refresh in background
+  Future<void> _loadWithCache() async {
+    if (!mounted) return;
+    
+    // Try to load cached data first
+    await _loadFromCache();
+    
+    // Then refresh from API in background
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  /// Load data from cache if available
+  Future<void> _loadFromCache() async {
+    try {
+      final cachedCategories = await _cacheService.getBillCategories();
+      final cachedBalance = await _cacheService.getBalance();
+      
+      if (cachedCategories != null && cachedBalance != null) {
+        final categories = cachedCategories.map((c) => BillCategoryModel.fromJson(c)).toList();
+        final balance = WalletBalance.fromJson({
+          'database_balance': {'usdc': cachedBalance['usdc']},
+          'stellar_address': cachedBalance['stellar_address'],
+        });
+        
+        if (mounted) {
+          setState(() {
+            _categories = categories;
+            _balance = balance;
+            _loading = false; // Show cached data immediately
+          });
+        }
+      }
+    } catch (e) {
+      // Silently fail - cache is optional
+      print('Failed to load bills categories from cache: $e');
+    }
+  }
+
+  Future<void> _load({bool forceRefresh = false}) async {
+    // Check cache validity - skip API calls if cache is fresh
+    if (!forceRefresh) {
+      final categoriesCacheValid = await _cacheService.isValid('bill_categories');
+      final balanceCacheValid = await _cacheService.isValid('balance');
+      
+      // If both caches are valid, skip API calls entirely
+      if (categoriesCacheValid && balanceCacheValid) {
+        return;
+      }
+    }
+    
+    if (_categories.isEmpty || _balance == null) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    
     try {
       final auth = context.read<AuthProvider>();
+      // Space out requests slightly
       final results = await Future.wait([
-        auth.getBillTopCategories(),
-        auth.getBalance(),
+        Future.delayed(const Duration(milliseconds: 0), () => auth.getBillTopCategories()),
+        Future.delayed(const Duration(milliseconds: 50), () => auth.getBalance()),
       ]);
       if (mounted) {
+        final categories = results[0] as List<BillCategoryModel>;
+        final balance = results[1] as WalletBalance;
+        
+        // Cache the fresh data
+        await _cacheService.setBillCategories(
+          categories.map((c) => {
+            'id': c.id,
+            'code': c.code,
+            'name': c.name,
+            'description': c.description,
+          }).toList(),
+        );
+        await _cacheService.setBalance({
+          'usdc': balance.usdc,
+          'stellar_address': balance.stellarAddress,
+        });
+        
         setState(() {
-          _categories = results[0] as List<BillCategoryModel>;
-          _balance = results[1] as WalletBalance;
+          _categories = categories;
+          _balance = balance;
           _loading = false;
         });
       }
@@ -51,19 +122,41 @@ class _BillsCategoriesScreenState extends State<BillsCategoriesScreen> {
       if (mounted) {
         if (e.message == 'Session expired') {
           await context.read<AuthProvider>().handleSessionExpired(context);
-        } else {
+        } else if (e.message.toLowerCase().contains('too many requests')) {
+          // Silently handle 429 - use cached data
           setState(() {
-            _error = e.message;
             _loading = false;
+            _error = null; // Don't show error if we have cached data
           });
+        } else {
+          // Only show error if we don't have cached data
+          if (_categories.isEmpty && _balance == null) {
+            setState(() {
+              _error = e.message;
+              _loading = false;
+            });
+          } else {
+            setState(() {
+              _loading = false;
+              _error = null; // Keep using cached data
+            });
+          }
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _error = 'Failed to load';
-          _loading = false;
-        });
+        // Only show error if we don't have cached data
+        if (_categories.isEmpty && _balance == null) {
+          setState(() {
+            _error = 'Failed to load';
+            _loading = false;
+          });
+        } else {
+          setState(() {
+            _loading = false;
+            _error = null; // Keep using cached data
+          });
+        }
       }
     }
   }
@@ -83,23 +176,19 @@ class _BillsCategoriesScreenState extends State<BillsCategoriesScreen> {
     return Scaffold(
       body: SafeArea(bottom: false,
         child: RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () => _load(forceRefresh: true),
           child: _loading
               ? const BillsCategoriesSkeletonLoader()
               : SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header with animation
                       Text(
                         'Bills',
                         style: AppTheme.header(context: context, fontSize: 32, fontWeight: FontWeight.w800),
-                      )
-                          .animate()
-                          .fadeIn(duration: 400.ms, delay: 100.ms)
-                          .slideY(begin: -0.2, end: 0, duration: 500.ms, delay: 100.ms, curve: Curves.easeOutCubic),
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         'Pay airtime, data, DSTV, electricity with USDC',
@@ -110,10 +199,7 @@ class _BillsCategoriesScreenState extends State<BillsCategoriesScreen> {
                               ? AppColors.textSecondaryDark
                               : AppColors.textSecondaryLight,
                         ),
-                      )
-                          .animate()
-                          .fadeIn(duration: 400.ms, delay: 200.ms)
-                          .slideY(begin: -0.1, end: 0, duration: 500.ms, delay: 200.ms, curve: Curves.easeOutCubic),
+                      ),
                       if (_error != null) ...[
                         const SizedBox(height: 16),
                         Container(
@@ -151,31 +237,22 @@ class _BillsCategoriesScreenState extends State<BillsCategoriesScreen> {
                                     ? AppColors.textTertiaryDark
                                     : AppColors.textTertiaryLight,
                               ),
-                            )
-                                .animate()
-                                .fadeIn(duration: 400.ms, delay: 300.ms),
+                            ),
                           )
                         else
-                          ..._categories.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final c = entry.value;
-                            return _CategoryTile(
-                              category: c,
-                              icon: _categoryIcon(c),
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (ctx) => BillsProvidersScreen(
-                                    category: c,
-                                    balance: _balance?.usdc ?? 0,
-                                    onSuccess: () => _load(),
-                                  ),
+                          ..._categories.map((c) => _CategoryTile(
+                            category: c,
+                            icon: _categoryIcon(c),
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (ctx) => BillsProvidersScreen(
+                                  category: c,
+                                  balance: _balance?.usdc ?? 0,
+                                  onSuccess: () => _load(forceRefresh: true),
                                 ),
                               ),
-                            )
-                                .animate()
-                                .fadeIn(duration: 400.ms, delay: (300 + index * 50).ms)
-                                .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: (300 + index * 50).ms, curve: Curves.easeOutCubic);
-                          }),
+                            ),
+                          )),
                       ],
                     ],
                   ),

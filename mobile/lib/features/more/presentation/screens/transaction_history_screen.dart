@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:stakk_savings/core/components/buttons/primary_button.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:stakk_savings/api/api_client.dart';
+import 'package:stakk_savings/core/components/buttons/primary_button.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
@@ -64,7 +65,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Transaction History')),
+      appBar: AppBar(
+        title: Text('Transaction History', style: AppTheme.title(context: context, fontSize: 18).copyWith(letterSpacing: -0.3)),
+      ),
       body: RefreshIndicator(
         onRefresh: _load,
         child: _loading
@@ -74,9 +77,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                 : _transactions.isEmpty
                     ? _EmptyView()
                     : ListView.separated(
-                        padding: const EdgeInsets.all(24),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         itemCount: _transactions.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (_, i) => _TransactionRow(tx: _transactions[i]),
                       ),
       ),
@@ -94,14 +98,14 @@ class _ErrorView extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: AppColors.error),
-            const SizedBox(height: 16),
-            Text(message, textAlign: TextAlign.center, style: AppTheme.body(context: context)),
-            const SizedBox(height: 16),
+            FaIcon(FontAwesomeIcons.circleExclamation, size: 48, color: AppColors.error),
+            const SizedBox(height: 20),
+            Text(message, textAlign: TextAlign.center, style: AppTheme.body(context: context, fontSize: 15)),
+            const SizedBox(height: 20),
             SizedBox(width: double.infinity, child: PrimaryButton(label: 'Retry', onPressed: onRetry)),
           ],
         ),
@@ -113,15 +117,17 @@ class _ErrorView extends StatelessWidget {
 class _EmptyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.receipt_long_outlined, size: 64, color: AppColors.textTertiaryLight),
-          const SizedBox(height: 16),
-          Text('No transactions yet', style: AppTheme.body(context: context)),
+          FaIcon(FontAwesomeIcons.receipt, size: 56, color: muted),
+          const SizedBox(height: 20),
+          Text('No transactions yet', style: AppTheme.header(context: context, fontSize: 18, fontWeight: FontWeight.w600).copyWith(letterSpacing: -0.2)),
           const SizedBox(height: 8),
-          Text('Your transactions will appear here', style: AppTheme.caption(context: context)),
+          Text('Your transactions will appear here', style: AppTheme.caption(context: context, fontSize: 14)),
         ],
       ),
     );
@@ -137,18 +143,18 @@ class _TransactionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final amount = tx.displayAmount;
     final isPositive = amount >= 0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardSurface = isDark ? AppColors.cardSurfaceDark : AppColors.cardSurfaceLight;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        color: Theme.of(context).brightness == Brightness.dark
-            ? AppColors.surfaceVariantDarkMuted
-            : Colors.white,
+        color: cardSurface,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 12,
             offset: const Offset(0, 2),
           ),
         ],
@@ -161,13 +167,15 @@ class _TransactionRow extends StatelessWidget {
             children: [
               Text(
                 tx.type ?? 'Transaction',
-                style: AppTheme.body(context: context, fontSize: 15, fontWeight: FontWeight.w600),
+                style: AppTheme.body(context: context, fontSize: 15, fontWeight: FontWeight.w600).copyWith(letterSpacing: -0.1),
               ),
-              if (tx.createdAt != null)
+              if (tx.createdAt != null) ...[
+                const SizedBox(height: 4),
                 Text(
                   tx.createdAt!,
                   style: AppTheme.caption(context: context, fontSize: 12),
                 ),
+              ],
             ],
           ),
           Text(

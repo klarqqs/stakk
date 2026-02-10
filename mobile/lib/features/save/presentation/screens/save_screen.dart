@@ -217,7 +217,7 @@ class _SaveScreenState extends State<SaveScreen> {
                       const SizedBox(height: 12),
                       if (_goals.isEmpty)
                         Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
                           child: Center(
                             child: Text(
                               'No goals yet. Tap the button above to create one.',

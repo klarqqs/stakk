@@ -5,7 +5,11 @@ import 'package:stakk_savings/core/constants/storage_keys.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 
 class ReenterPasscodeScreen extends StatefulWidget {
-  const ReenterPasscodeScreen({super.key});
+  /// Passcode from CreatePasscodeScreen (via route args). Avoids storage sync
+  /// issues on iOS where keychain write may not persist before navigation.
+  final String? expectedPasscode;
+
+  const ReenterPasscodeScreen({super.key, this.expectedPasscode});
 
   @override
   State<ReenterPasscodeScreen> createState() => _ReenterPasscodeScreenState();
@@ -15,6 +19,13 @@ class _ReenterPasscodeScreenState extends State<ReenterPasscodeScreen> {
   String _passcode = '';
   String? _error;
   final _storage = const FlutterSecureStorage();
+
+  Future<String?> _getExpectedPasscode() async {
+    if (widget.expectedPasscode != null && widget.expectedPasscode!.isNotEmpty) {
+      return widget.expectedPasscode;
+    }
+    return await _storage.read(key: StorageKeys.tempPasscode);
+  }
 
   void _onDigit(String digit) {
     if (_passcode.length >= 4) return;
@@ -36,12 +47,12 @@ class _ReenterPasscodeScreenState extends State<ReenterPasscodeScreen> {
   }
 
   Future<void> _verify() async {
-    final temp = await _storage.read(key: StorageKeys.tempPasscode);
-    if (temp == null || temp.isEmpty) {
+    final expected = await _getExpectedPasscode();
+    if (expected == null || expected.isEmpty) {
       setState(() => _error = 'Session expired. Please start over.');
       return;
     }
-    if (_passcode == temp) {
+    if (_passcode == expected) {
       await _storage.write(key: StorageKeys.passcode, value: _passcode);
       await _storage.delete(key: StorageKeys.tempPasscode);
       if (!mounted) return;
@@ -60,7 +71,7 @@ class _ReenterPasscodeScreenState extends State<ReenterPasscodeScreen> {
       body: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

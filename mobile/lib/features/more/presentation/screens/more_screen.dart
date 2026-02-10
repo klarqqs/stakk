@@ -5,7 +5,9 @@ import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
 import 'package:stakk_savings/core/theme/theme_provider.dart';
+import 'package:stakk_savings/features/bills/presentation/screens/bills_categories_screen.dart';
 import 'package:stakk_savings/features/card/presentation/screens/card_screen.dart';
+import 'package:stakk_savings/features/send/presentation/screens/send_screen.dart';
 import 'package:stakk_savings/features/more/presentation/screens/privacy_policy_screen.dart';
 import 'package:stakk_savings/features/more/presentation/screens/terms_of_service_screen.dart';
 import 'package:stakk_savings/features/more/presentation/screens/transaction_history_screen.dart';
@@ -51,7 +53,7 @@ class _MoreScreenState extends State<MoreScreen> {
               child: Opacity(
                 opacity: _isLoggingOut ? 0.6 : 1.0,
                 child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           children: [
             Text(
               'More',
@@ -82,6 +84,24 @@ class _MoreScreenState extends State<MoreScreen> {
               const SizedBox(height: 32),
             ],
             _MoreSection(title: 'Services'),
+            _SettingTile(
+              icon: Icons.receipt_long_outlined,
+              title: 'Pay Bills',
+              subtitle: 'Airtime, data & more',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BillsCategoriesScreen()),
+              ),
+            ),
+            _SettingTile(
+              icon: Icons.send_outlined,
+              title: 'Send Money',
+              subtitle: 'P2P transfers',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SendScreen()),
+              ),
+            ),
             _SettingTile(
               icon: Icons.credit_card_outlined,
               title: 'Virtual Dollar Cards',
@@ -225,9 +245,9 @@ class _MoreScreenState extends State<MoreScreen> {
         if (_isLoggingOut)
           Container(
             color: Colors.black.withOpacity(0.1),
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
+            // child: const Center(
+            //   child: CircularProgressIndicator(),
+            // ),
           ),
       ],
     );

@@ -50,11 +50,28 @@ class AuthService {
   }
 
   /// Sign in with Google ID token
-  Future<AuthTokenResponse> signInWithGoogle(String idToken) async {
+  Future<AuthTokenResponse> signInWithGoogle({
+    required String idToken,
+    String? email,
+    String? firstName,
+    String? lastName,
+  }) async {
+    final user = <String, dynamic>{};
+    if (email != null) user['email'] = email;
+    if (firstName != null || lastName != null) {
+      user['name'] = {
+        'firstName': firstName ?? '',
+        'lastName': lastName ?? '',
+      };
+    }
+
     final res = await http.post(
       Uri.parse('$_base/google'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'idToken': idToken}),
+      body: jsonEncode({
+        'idToken': idToken,
+        if (user.isNotEmpty) 'user': user,
+      }),
     );
 
     final body = jsonDecode(res.body) as Map<String, dynamic>;

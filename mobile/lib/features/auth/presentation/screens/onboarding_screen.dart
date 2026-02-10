@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -100,8 +99,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         return;
       }
 
+      // Extract name from Google account
+      String? firstName;
+      String? lastName;
+      if (account.displayName != null && account.displayName!.isNotEmpty) {
+        final nameParts = account.displayName!.trim().split(' ');
+        if (nameParts.isNotEmpty) {
+          firstName = nameParts.first;
+          if (nameParts.length > 1) {
+            lastName = nameParts.sublist(1).join(' ');
+          }
+        }
+      }
+
       if (!mounted) return;
-      await context.read<AuthProvider>().signInWithGoogle(idToken);
+      await context.read<AuthProvider>().signInWithGoogle(
+        idToken: idToken,
+        email: account.email,
+        firstName: firstName,
+        lastName: lastName,
+      );
       if (!mounted) return;
       await _handlePostSignIn();
     } catch (e) {
@@ -202,6 +219,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _handlePostSignIn() async {
     if (!mounted) return;
     try {
+      // Note: Names might be null for Apple on subsequent sign-ins
+      // Backend should decode from identity token, but if still null,
+      // user can update in profile screen
+      
       const storage = FlutterSecureStorage();
       final passcode = await storage.read(key: StorageKeys.passcode);
       if (!mounted) return;
@@ -288,47 +309,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             const SizedBox(height: 40),
                             GlassCard(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 24,
-                                    vertical: 28,
+                                    horizontal: 20,
+                                    vertical: 20,
                                   ),
                                   blur: 16,
                                   child: Column(
                                     children: [
                                       _GoogleSignInButton(
-                                            onPressed: _handleGoogleSignIn,
-                                            isDark: isDark,
-                                            isLoading: _isGoogleLoading,
-                                          )
-                                          .animate()
-                                          .fadeIn(
-                                            duration: 400.ms,
-                                            delay: 400.ms,
-                                          )
-                                          .slideY(
-                                            begin: 0.3,
-                                            end: 0,
-                                            duration: 500.ms,
-                                            delay: 400.ms,
-                                            curve: Curves.easeOutCubic,
-                                          ),
+                                        onPressed: _handleGoogleSignIn,
+                                        isDark: isDark,
+                                        isLoading: _isGoogleLoading,
+                                      ),
                                       const SizedBox(height: 14),
                                       _AppleSignInButton(
-                                            onPressed: _handleAppleSignIn,
-                                            isDark: isDark,
-                                            isLoading: _isAppleLoading,
-                                          )
-                                          .animate()
-                                          .fadeIn(
-                                            duration: 400.ms,
-                                            delay: 500.ms,
-                                          )
-                                          .slideY(
-                                            begin: 0.3,
-                                            end: 0,
-                                            duration: 500.ms,
-                                            delay: 500.ms,
-                                            curve: Curves.easeOutCubic,
-                                          ),
+                                        onPressed: _handleAppleSignIn,
+                                        isDark: isDark,
+                                        isLoading: _isAppleLoading,
+                                      ),
                                       const SizedBox(height: 24),
                                       Row(
                                         children: [
@@ -370,43 +367,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                             ),
                                           ),
                                         ],
-                                      ).animate().fadeIn(
-                                        duration: 300.ms,
-                                        delay: 600.ms,
                                       ),
                                       const SizedBox(height: 24),
                                       SizedBox(
-                                            width: double.infinity,
-                                            child: PrimaryButton(
-                                              label: 'Continue with Email',
-                                              onPressed: _isLoading
-                                                  ? null
-                                                  : _handleEmailSignIn,
-                                            ),
-                                          )
-                                          .animate()
-                                          .fadeIn(
-                                            duration: 400.ms,
-                                            delay: 700.ms,
-                                          )
-                                          .slideY(
-                                            begin: 0.3,
-                                            end: 0,
-                                            duration: 500.ms,
-                                            delay: 700.ms,
-                                            curve: Curves.easeOutCubic,
-                                          ),
+                                        width: double.infinity,
+                                        child: PrimaryButton(
+                                          label: 'Continue with Email',
+                                          onPressed: _isLoading
+                                              ? null
+                                              : _handleEmailSignIn,
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                )
-                                .animate()
-                                .fadeIn(duration: 500.ms, delay: 300.ms)
-                                .scale(
-                                  begin: const Offset(0.95, 0.95),
-                                  end: const Offset(1.0, 1.0),
-                                  duration: 600.ms,
-                                  delay: 300.ms,
-                                  curve: Curves.easeOutCubic,
                                 ),
                           ],
                         ),

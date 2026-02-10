@@ -99,7 +99,7 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
             SafeArea(
               bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 child: Opacity(
                   opacity: _isLoading ? 0.6 : 1.0,
           child: Column(
@@ -216,8 +216,26 @@ class _CheckEmailScreenState extends State<CheckEmailScreen> {
         return;
       }
 
+      // Extract name from Google account
+      String? firstName;
+      String? lastName;
+      if (account.displayName != null && account.displayName!.isNotEmpty) {
+        final nameParts = account.displayName!.trim().split(' ');
+        if (nameParts.isNotEmpty) {
+          firstName = nameParts.first;
+          if (nameParts.length > 1) {
+            lastName = nameParts.sublist(1).join(' ');
+          }
+        }
+      }
+
       if (!mounted) return;
-      await context.read<AuthProvider>().signInWithGoogle(idToken);
+      await context.read<AuthProvider>().signInWithGoogle(
+        idToken: idToken,
+        email: account.email,
+        firstName: firstName,
+        lastName: lastName,
+      );
       if (!mounted) return;
       await _handlePostSignIn();
     } catch (e) {

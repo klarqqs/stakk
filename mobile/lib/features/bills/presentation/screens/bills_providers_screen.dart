@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/core/theme/app_theme.dart';
 import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/core/theme/tokens/app_radius.dart';
-import 'package:stakk_savings/api/api_client.dart';
 import 'package:stakk_savings/features/bills/domain/models/bill_models.dart';
 import 'package:stakk_savings/features/bills/presentation/widgets/bills_pay_sheet.dart';
 import 'package:stakk_savings/features/bills/presentation/widgets/bills_providers_skeleton_loader.dart';
 import 'package:stakk_savings/providers/auth_provider.dart';
+import 'package:stakk_savings/services/cache_service.dart';
 
 class BillsProvidersScreen extends StatefulWidget {
   final BillCategoryModel category;
   final double balance;
   final double? presetAmount;
   final VoidCallback onSuccess;
+
   /// If set, opens pay sheet directly for first matching provider (e.g. 'DSTV' for quick pay)
   final String? preSelectProviderName;
 
@@ -35,25 +37,113 @@ class _BillsProvidersScreenState extends State<BillsProvidersScreen> {
   List<BillProviderModel> _providers = [];
   bool _loading = true;
   String? _error;
+  final _cacheService = CacheService();
 
   @override
   void initState() {
     super.initState();
+    _loadWithCache();
+  }
+
+  /// Load cached data first, then refresh in background
+  Future<void> _loadWithCache() async {
+    if (!mounted) return;
+
+    // Try to load cached data first
+    await _loadFromCache();
+
+    // Then refresh from API in background
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  /// Load data from cache if available
+  Future<void> _loadFromCache() async {
     try {
-      final providers = await context.read<AuthProvider>().getBillProviders(widget.category.code);
+      final cachedProviders = await _cacheService.getBillProviders(
+        widget.category.code,
+      );
+
+      if (cachedProviders != null && cachedProviders.isNotEmpty) {
+        final providers = cachedProviders
+            .map((p) => BillProviderModel.fromJson(p))
+            .toList();
+
+        if (mounted) {
+          setState(() {
+            _providers = providers;
+            _loading = false; // Show cached data immediately
+          });
+        }
+      }
+    } catch (e) {
+      // Silently fail - cache is optional
+      print('Failed to load bill providers from cache: $e');
+    }
+  }
+
+  Future<void> _load({bool forceRefresh = false}) async {
+    // Check cache validity - skip API calls if cache is fresh
+    if (!forceRefresh) {
+      final providersCacheValid = await _cacheService.isValid(
+        'bill_providers_${widget.category.code}',
+      );
+
+      // If cache is valid, skip API calls entirely
+      if (providersCacheValid && _providers.isNotEmpty) {
+        // Still check for preSelectProviderName even with cached data
+        final preSelect = widget.preSelectProviderName?.trim();
+        if (preSelect != null &&
+            preSelect.isNotEmpty &&
+            _providers.isNotEmpty) {
+          BillProviderModel? match;
+          for (final p in _providers) {
+            if (p.name.toLowerCase().contains(preSelect.toLowerCase())) {
+              match = p;
+              break;
+            }
+          }
+          if (match != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _openPaySheet(match!, popRouteOnClose: true);
+            });
+          }
+        }
+        return;
+      }
+    }
+
+    if (_providers.isEmpty) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final providers = await context.read<AuthProvider>().getBillProviders(
+        widget.category.code,
+      );
       if (mounted) {
+        // Cache the fresh data
+        await _cacheService.setBillProviders(
+          widget.category.code,
+          providers
+              .map(
+                (p) => {
+                  'id': p.id,
+                  'name': p.name,
+                  'billerCode': p.billerCode,
+                  'shortName': p.shortName,
+                },
+              )
+              .toList(),
+        );
+
         setState(() {
           _providers = providers;
           _loading = false;
         });
+
         final preSelect = widget.preSelectProviderName?.trim();
         if (preSelect != null && preSelect.isNotEmpty && providers.isNotEmpty) {
           BillProviderModel? match;
@@ -75,24 +165,49 @@ class _BillsProvidersScreenState extends State<BillsProvidersScreen> {
       if (mounted) {
         if (e.message == 'Session expired') {
           await context.read<AuthProvider>().handleSessionExpired(context);
-        } else {
+        } else if (e.message.toLowerCase().contains('too many requests')) {
+          // Silently handle 429 - use cached data
           setState(() {
-            _error = e.message;
             _loading = false;
+            _error = null; // Don't show error if we have cached data
           });
+        } else {
+          // Only show error if we don't have cached data
+          if (_providers.isEmpty) {
+            setState(() {
+              _error = e.message;
+              _loading = false;
+            });
+          } else {
+            setState(() {
+              _loading = false;
+              _error = null; // Keep using cached data
+            });
+          }
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _error = 'Failed to load providers';
-          _loading = false;
-        });
+        // Only show error if we don't have cached data
+        if (_providers.isEmpty) {
+          setState(() {
+            _error = 'Failed to load providers';
+            _loading = false;
+          });
+        } else {
+          setState(() {
+            _loading = false;
+            _error = null; // Keep using cached data
+          });
+        }
       }
     }
   }
 
-  void _openPaySheet(BillProviderModel provider, {bool popRouteOnClose = false}) {
+  void _openPaySheet(
+    BillProviderModel provider, {
+    bool popRouteOnClose = false,
+  }) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -124,42 +239,41 @@ class _BillsProvidersScreenState extends State<BillsProvidersScreen> {
         backgroundColor: Colors.transparent,
         title: Text(
           widget.category.name,
-          style: AppTheme.header(context: context, fontSize: 22, fontWeight: FontWeight.w700),
+          style: AppTheme.header(
+            context: context,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
-      body: SafeArea(bottom: false,
+      body: SafeArea(
+        bottom: false,
         child: RefreshIndicator(
-          onRefresh: _load,
+          onRefresh: () => _load(forceRefresh: true),
           child: _loading
               ? const BillsProvidersSkeletonLoader()
               : SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Header with animation
-                      Text(
-                        'Select Provider',
-                        style: AppTheme.header(context: context, fontSize: 28, fontWeight: FontWeight.w800),
-                      )
-                          .animate()
-                          .fadeIn(duration: 400.ms, delay: 100.ms)
-                          .slideY(begin: -0.2, end: 0, duration: 500.ms, delay: 100.ms, curve: Curves.easeOutCubic),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Choose your service provider',
-                        style: AppTheme.body(
-                          context: context,
-                          fontSize: 16,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? AppColors.textSecondaryDark
-                              : AppColors.textSecondaryLight,
+                      Center(
+                        child: Text(
+                          'Choose your service provider',
+                          style: AppTheme.body(
+                            context: context,
+                            fontSize: 16,
+                            color:
+                                Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.textSecondaryDark
+                                : AppColors.textSecondaryLight,
+                          ),
                         ),
-                      )
-                          .animate()
-                          .fadeIn(duration: 400.ms, delay: 200.ms)
-                          .slideY(begin: -0.1, end: 0, duration: 500.ms, delay: 200.ms, curve: Curves.easeOutCubic),
+                      ),
                       if (_error != null) ...[
                         const SizedBox(height: 16),
                         Container(
@@ -171,8 +285,19 @@ class _BillsProvidersScreenState extends State<BillsProvidersScreen> {
                           ),
                           child: Row(
                             children: [
-                              Expanded(child: Text(_error!, style: AppTheme.body(fontSize: 14, color: const Color(0xFFDC2626)))),
-                              TextButton(onPressed: _load, child: const Text('Retry')),
+                              Expanded(
+                                child: Text(
+                                  _error!,
+                                  style: AppTheme.body(
+                                    fontSize: 14,
+                                    color: const Color(0xFFDC2626),
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _load,
+                                child: const Text('Retry'),
+                              ),
                             ],
                           ),
                         ),
@@ -188,26 +313,21 @@ class _BillsProvidersScreenState extends State<BillsProvidersScreen> {
                               style: AppTheme.body(
                                 context: context,
                                 fontSize: 15,
-                                color: Theme.of(context).brightness == Brightness.dark
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
                                     ? AppColors.textTertiaryDark
                                     : AppColors.textTertiaryLight,
                               ),
-                            )
-                                .animate()
-                                .fadeIn(duration: 400.ms, delay: 300.ms),
+                            ),
                           )
                         else
-                          ..._providers.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final p = entry.value;
-                            return _ProviderTile(
+                          ..._providers.map(
+                            (p) => _ProviderTile(
                               provider: p,
                               onTap: () => _openPaySheet(p),
-                            )
-                                .animate()
-                                .fadeIn(duration: 400.ms, delay: (300 + index * 50).ms)
-                                .slideX(begin: -0.1, end: 0, duration: 500.ms, delay: (300 + index * 50).ms, curve: Curves.easeOutCubic);
-                          }),
+                            ),
+                          ),
                       ],
                     ],
                   ),
@@ -228,7 +348,7 @@ class _ProviderTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = isDark ? AppColors.primaryDark : AppColors.primary;
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Material(
@@ -239,73 +359,34 @@ class _ProviderTile extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: isDark ? AppColors.surfaceVariantDarkMuted : AppColors.surfaceLight,
+              color: isDark
+                  ? AppColors.cardSurfaceDark
+                  : AppColors.cardSurfaceLight,
               borderRadius: BorderRadius.circular(AppRadius.xl),
-              border: Border.all(
-                color: isDark
-                    ? AppColors.borderDark.withValues(alpha: 0.3)
-                    : AppColors.borderLight.withValues(alpha: 0.4),
-                width: 1.5,
-              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
-                  blurRadius: 16,
-                  spreadRadius: 0,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Row(
               children: [
-                // Enhanced gradient accent bar
-                Container(
-                  width: 5,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        primary,
-                        primary.withValues(alpha: 0.7),
-                        primary.withValues(alpha: 0.4),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                    borderRadius: BorderRadius.circular(2.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: primary.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 18),
-                // Icon with premium background
                 Container(
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        primary.withValues(alpha: 0.15),
-                        primary.withValues(alpha: 0.08),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    boxShadow: [
-                      BoxShadow(
-                        color: primary.withValues(alpha: 0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+                    color: primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(Icons.business, color: primary, size: 22),
+                  child: Center(
+                    child: FaIcon(
+                      FontAwesomeIcons.building,
+                      color: primary,
+                      size: 20,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -313,15 +394,17 @@ class _ProviderTile extends StatelessWidget {
                     provider.name,
                     style: AppTheme.body(
                       context: context,
-                      fontSize: 17,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
-                    ),
+                    ).copyWith(letterSpacing: -0.1),
                   ),
                 ),
-                Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight,
+                FaIcon(
+                  FontAwesomeIcons.chevronRight,
+                  size: 12,
+                  color: isDark
+                      ? AppColors.textTertiaryDark
+                      : AppColors.textTertiaryLight,
                 ),
               ],
             ),
