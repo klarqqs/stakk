@@ -31,9 +31,20 @@ export async function createRefreshTokenRecord(
 ): Promise<void> {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 30);
+  
+  // Use ON CONFLICT to handle duplicate tokens gracefully
+  // If token already exists (shouldn't happen, but handle race conditions),
+  // update the expires_at and reset revoked status
   await pool.query(
-    `INSERT INTO refresh_tokens (user_id, token, device_id, expires_at)
-     VALUES ($1, $2, $3, $4)`,
+    `INSERT INTO refresh_tokens (user_id, token, device_id, expires_at, revoked)
+     VALUES ($1, $2, $3, $4, false)
+     ON CONFLICT (token) 
+     DO UPDATE SET 
+       expires_at = EXCLUDED.expires_at,
+       revoked = false,
+       created_at = NOW(),
+       user_id = EXCLUDED.user_id,
+       device_id = EXCLUDED.device_id`,
     [userId, token, deviceId || null, expiresAt]
   );
 }

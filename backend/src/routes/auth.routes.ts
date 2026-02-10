@@ -84,13 +84,28 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
+    // Revoke the old refresh token
     await revokeRefreshToken(refreshToken);
 
     const user = userRow.rows[0];
     const accessToken = generateAccessToken(user.id, user.email);
-    const newRefreshToken = generateRefreshToken(user.id);
+    let newRefreshToken = generateRefreshToken(user.id);
     const deviceId = req.headers['x-device-id'] as string | undefined;
-    await createRefreshTokenRecord(user.id, newRefreshToken, deviceId);
+    
+    // Create new refresh token record (handles duplicates gracefully with ON CONFLICT)
+    // If somehow a duplicate still occurs, generate a new token and retry
+    try {
+      await createRefreshTokenRecord(user.id, newRefreshToken, deviceId);
+    } catch (error: any) {
+      // If duplicate token error still occurs (shouldn't with ON CONFLICT, but handle edge cases),
+      // generate a new token and try again once
+      if (error?.code === '23505') {
+        newRefreshToken = generateRefreshToken(user.id);
+        await createRefreshTokenRecord(user.id, newRefreshToken, deviceId);
+      } else {
+        throw error;
+      }
+    }
 
     res.json({
       accessToken,
