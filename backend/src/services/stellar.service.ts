@@ -1,13 +1,17 @@
 import * as StellarSdk from 'stellar-sdk';
 
 /** Circle's official USDC on Stellar mainnet */
-const USDC_ISSUER = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
+const USDC_ISSUER_MAINNET = 'GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN';
+/** Test USDC issuer for Stellar testnet (Stellar Quest testnet USDC) */
+const USDC_ISSUER_TESTNET = 'GBBD47IF6LWK7P7MUNSC6V5TOTLSADJ7XUO3RBQZ7Q2W54OPB6L6F5TQ';
 const XLM_PER_NEW_ACCOUNT = '1.5';
+const TEST_USDC_AMOUNT = '1000'; // Amount of test USDC to fund new accounts for testing
 
 class StellarService {
   private server: StellarSdk.Horizon.Server;
   private readonly isMainnet: boolean;
   private readonly networkPassphrase: string;
+  private readonly usdcIssuer: string;
 
   constructor() {
     this.isMainnet = process.env.STELLAR_NETWORK !== 'testnet';
@@ -18,6 +22,7 @@ class StellarService {
     this.networkPassphrase = this.isMainnet
       ? StellarSdk.Networks.PUBLIC
       : StellarSdk.Networks.TESTNET;
+    this.usdcIssuer = this.isMainnet ? USDC_ISSUER_MAINNET : USDC_ISSUER_TESTNET;
   }
 
   createWallet() {
@@ -34,11 +39,15 @@ class StellarService {
    */
   async fundNewAccount(publicKey: string): Promise<void> {
     if (!this.isMainnet) {
+      // Fund with XLM via Friendbot
       const response = await fetch(
         `https://friendbot.stellar.org?addr=${publicKey}`
       );
       const result = await response.json();
-      console.log('✅ Testnet account funded')
+      console.log('✅ Testnet account funded with XLM');
+      
+      // Also fund with test USDC for testing Dinari
+      await this.fundTestUSDC(publicKey);
       return;
     }
 
@@ -78,6 +87,21 @@ class StellarService {
   }
 
   /**
+   * Fund test USDC on testnet for new accounts (for testing Dinari).
+   * Note: For sandbox testing, we'll add test USDC balance directly to the database
+   * since Stellar testnet doesn't have a standard test USDC issuer.
+   */
+  async fundTestUSDC(publicKey: string): Promise<void> {
+    if (this.isMainnet) {
+      return; // Skip on mainnet
+    }
+
+    // For testnet/sandbox, we'll add test USDC balance via database update
+    // This is handled in auth-helpers.ts after wallet creation
+    console.log(`💵 Test USDC will be added to database for ${publicKey.slice(0, 8)}...`);
+  }
+
+  /**
    * Send USDC from treasury to user (mainnet only).
    */
   async sendUSDC(userPublicKey: string, amount: string): Promise<string> {
@@ -90,7 +114,7 @@ class StellarService {
       throw new Error('TREASURY_SECRET_KEY required');
     }
 
-    const usdcAsset = new StellarSdk.Asset('USDC', USDC_ISSUER);
+    const usdcAsset = new StellarSdk.Asset('USDC', this.usdcIssuer);
     const treasuryKeypair = StellarSdk.Keypair.fromSecret(treasurySecret);
     const treasuryAccount = await this.server.loadAccount(treasuryKeypair.publicKey());
 
@@ -125,7 +149,7 @@ class StellarService {
   ): Promise<string> {
     const userKeypair = StellarSdk.Keypair.fromSecret(userSecretKey);
     const account = await this.server.loadAccount(userKeypair.publicKey());
-    const usdcAsset = new StellarSdk.Asset('USDC', USDC_ISSUER);
+    const usdcAsset = new StellarSdk.Asset('USDC', this.usdcIssuer);
 
     const transaction = new StellarSdk.TransactionBuilder(account, {
       fee: StellarSdk.BASE_FEE,

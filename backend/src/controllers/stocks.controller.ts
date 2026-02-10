@@ -66,9 +66,13 @@ export class StocksController {
 
       const amount = Number(amountUSD);
 
-      // Check user's USDC balance
+      // Check user's USDC balance and get Stellar address
+      // stellar_public_key is in users table, not wallets table
       const balanceResult = await client.query(
-        'SELECT usdc_balance, stellar_public_key FROM wallets WHERE user_id = $1 FOR UPDATE',
+        `SELECT w.usdc_balance, u.stellar_public_key 
+         FROM wallets w 
+         JOIN users u ON w.user_id = u.id 
+         WHERE w.user_id = $1 FOR UPDATE`,
         [userId]
       );
 

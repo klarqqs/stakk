@@ -19,6 +19,7 @@
     "migrate:device-tokens": "ts-node src/migrations/add-device-tokens.ts",
     "migrate:stocks": "ts-node src/migrations/add-stock-trading.ts",
     "db:clear": "ts-node src/scripts/clear-database.ts",
+    "db:reset": "ts-node src/scripts/reset-database.ts",
     "check-treasury": "ts-node src/scripts/check-treasury.ts",
     "test-user": "ts-node src/test-user-creation.ts",
     "dev": "nodemon src/server.ts",

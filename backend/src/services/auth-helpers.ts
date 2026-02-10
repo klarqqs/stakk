@@ -38,10 +38,19 @@ export async function createUserWithStellar(
   );
 
   const user = result.rows[0];
+  
+  // For sandbox/testnet: Give new users test USDC balance for testing Dinari
+  const isTestnet = process.env.STELLAR_NETWORK === 'testnet';
+  const initialUSDCBalance = isTestnet ? '1000' : '0'; // 1000 test USDC for sandbox testing
+  
   await pool.query('INSERT INTO wallets (user_id, usdc_balance) VALUES ($1, $2)', [
     user.id,
-    0
+    initialUSDCBalance
   ]);
+
+  if (isTestnet) {
+    console.log(`✅ New testnet user created with ${initialUSDCBalance} test USDC for Dinari testing`);
+  }
 
   if (referralCode && referralCode.trim()) {
     try {
