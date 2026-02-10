@@ -123,6 +123,17 @@ export class StocksController {
 
       await client.query('COMMIT');
 
+      // Sync holdings after purchase
+      try {
+        const accountId = await dinariService.getOrCreateAccount(userId, walletAddress);
+        const portfolio = await dinariService.getPortfolio(accountId);
+        const holdings = portfolio.holdings || portfolio.positions || [];
+        await this.syncHoldingsToDatabase(userId, accountId, holdings);
+      } catch (syncError) {
+        // Non-critical - holdings will sync on next portfolio fetch
+        console.warn('Holdings sync after purchase failed (non-critical):', syncError);
+      }
+
       res.json({
         success: true,
         order,
@@ -202,6 +213,9 @@ export class StocksController {
         portfolio.total_value ||
         holdings.reduce((sum: number, h: any) => sum + (h.total_value || h.value || 0), 0);
 
+      // Sync holdings to database for faster loading
+      await this.syncHoldingsToDatabase(userId, dinariAccountId, holdings);
+
       res.json({
         holdings,
         totalValue,
@@ -213,6 +227,72 @@ export class StocksController {
       res.status(500).json({
         error: error instanceof Error ? error.message : 'Failed to fetch portfolio',
       });
+    }
+  }
+
+  /**
+   * Sync holdings from Dinari API to database
+   */
+  private async syncHoldingsToDatabase(
+    userId: number,
+    dinariAccountId: string,
+    holdings: any[]
+  ) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const holding of holdings) {
+        const ticker = (holding.symbol || holding.ticker || '').toUpperCase();
+        const shares = parseFloat(holding.shares || holding.quantity || 0);
+        const avgBuyPrice = parseFloat(holding.avg_buy_price || holding.average_price || holding.price || 0);
+        const currentPrice = parseFloat(holding.current_price || holding.price || avgBuyPrice);
+        const totalValue = shares * currentPrice;
+
+        if (ticker && shares > 0) {
+          // Upsert holding
+          await client.query(
+            `INSERT INTO stock_holdings (
+              user_id, dinari_account_id, ticker, shares, avg_buy_price, current_price, total_value, updated_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+            ON CONFLICT (user_id, ticker) 
+            DO UPDATE SET
+              shares = EXCLUDED.shares,
+              avg_buy_price = EXCLUDED.avg_buy_price,
+              current_price = EXCLUDED.current_price,
+              total_value = EXCLUDED.total_value,
+              updated_at = NOW()`,
+            [userId, dinariAccountId, ticker, shares, avgBuyPrice, currentPrice, totalValue]
+          );
+        }
+      }
+
+      // Remove holdings that are no longer in portfolio (sold)
+      const tickers = holdings
+        .map((h) => (h.symbol || h.ticker || '').toUpperCase())
+        .filter((t) => t);
+      
+      if (tickers.length > 0) {
+        await client.query(
+          `DELETE FROM stock_holdings 
+           WHERE user_id = $1 AND ticker != ALL($2::text[])`,
+          [userId, tickers]
+        );
+      } else {
+        // If no holdings, clear all for this user
+        await client.query(
+          'DELETE FROM stock_holdings WHERE user_id = $1',
+          [userId]
+        );
+      }
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      console.error('Error syncing holdings to database:', error);
+      // Don't throw - this is non-critical
+    } finally {
+      client.release();
     }
   }
 

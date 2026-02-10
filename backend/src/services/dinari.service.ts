@@ -258,11 +258,19 @@ class DinariService {
       // In production, you would create a new account via Dinari API: POST /entities/{entity_id}/accounts
       let accountId: string;
       if (this.environment === 'sandbox') {
+        // Check for explicit sandbox account ID first, then fall back to entity ID
         accountId = process.env.DINARI_SANDBOX_ACCOUNT_ID || this.entityId;
+        if (!accountId) {
+          throw new Error('DINARI_SANDBOX_ACCOUNT_ID or DINARI_ENTITY_ID must be set for sandbox mode');
+        }
+        console.log(`ℹ️  Using sandbox account: ${accountId.substring(0, 8)}...`);
       } else {
         // In production, could create per-user accounts via API
         // For now, use entity ID as fallback
         accountId = this.entityId;
+        if (!accountId) {
+          throw new Error('DINARI_ENTITY_ID must be set for production mode');
+        }
       }
 
       // Save account ID to user record (only if column exists)
@@ -329,22 +337,56 @@ class DinariService {
       // Get or create account and ensure wallet is connected
       const accountId = await this.getOrCreateAccount(params.userId, params.walletAddress);
 
+      if (!accountId) {
+        throw new Error('Dinari account ID is required. Please ensure DINARI_ENTITY_ID or DINARI_SANDBOX_ACCOUNT_ID is set.');
+      }
+
       // Place buy order with Dinari
-      const orderResponse = await this.client.post('/orders', {
+      // Dinari API v2 endpoint: POST /orders
+      // For sandbox, account_id should be the shared sandbox account ID
+      const orderPayload = {
         account_id: accountId,
         symbol: params.ticker.toUpperCase(),
         side: 'buy',
         type: 'market',
         amount_usd: params.amountUSD,
         destination_address: params.walletAddress,
+      };
+
+      console.log(`🔵 Placing buy order:`, {
+        accountId: accountId.substring(0, 8) + '...',
+        ticker: params.ticker.toUpperCase(),
+        amountUSD: params.amountUSD,
+        environment: this.environment,
       });
+
+      const orderResponse = await this.client.post('/orders', orderPayload);
 
       return orderResponse.data;
     } catch (error: any) {
-      console.error('Dinari API error (buyStock):', error.response?.data || error.message);
+      const errorData = error.response?.data || {};
+      const statusCode = error.response?.status;
+      
+      console.error('Dinari API error (buyStock):', {
+        status: statusCode,
+        error: errorData,
+        message: error.message,
+        accountId: params.userId ? 'present' : 'missing',
+        environment: this.environment,
+      });
+
+      // Provide more specific error messages
+      if (statusCode === 404) {
+        throw new Error(
+          `Account not found (404). Please ensure DINARI_SANDBOX_ACCOUNT_ID is set correctly for sandbox, or create an account via Dinari API. ` +
+          `Current account ID: ${await this.getOrCreateAccount(params.userId, params.walletAddress).catch(() => 'unknown')}`
+        );
+      }
+
       throw new Error(
-        error.response?.data?.error?.message ||
-        error.response?.data?.message ||
+        errorData.error?.message ||
+        errorData.message ||
+        error.message ||
         'Failed to buy stock'
       );
     }

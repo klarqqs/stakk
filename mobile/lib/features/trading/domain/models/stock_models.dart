@@ -81,10 +81,15 @@ class StockHolding {
   });
 
   factory StockHolding.fromJson(Map<String, dynamic> json) {
-    final shares = (json['shares'] as num?)?.toDouble() ?? 0.0;
-    final avgPrice = (json['avg_buy_price'] as num?)?.toDouble() ?? 0.0;
-    final currentPrice = (json['current_price'] as num?)?.toDouble() ?? avgPrice;
-    final totalValue = shares * currentPrice;
+    final shares = (json['shares'] as num?)?.toDouble() ?? 
+                   (json['quantity'] as num?)?.toDouble() ?? 0.0;
+    final avgPrice = (json['avg_buy_price'] as num?)?.toDouble() ?? 
+                     (json['average_price'] as num?)?.toDouble() ?? 0.0;
+    final currentPrice = (json['current_price'] as num?)?.toDouble() ?? 
+                         (json['price'] as num?)?.toDouble() ?? avgPrice;
+    final totalValue = (json['total_value'] as num?)?.toDouble() ?? 
+                       (json['value'] as num?)?.toDouble() ?? 
+                       (shares * currentPrice);
 
     return StockHolding(
       symbol: json['symbol'] as String? ?? json['ticker'] as String? ?? '',

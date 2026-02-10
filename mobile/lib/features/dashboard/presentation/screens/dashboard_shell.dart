@@ -2,13 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:stakk_savings/core/components/app_bottom_nav_bar.dart';
 import 'package:stakk_savings/core/components/connectivity_banner.dart';
 import 'package:stakk_savings/widgets/force_update_dialog.dart';
-import 'package:stakk_savings/core/theme/tokens/app_colors.dart';
 import 'package:stakk_savings/services/app_version_service.dart';
-import 'package:stakk_savings/features/home/presentation/screens/home_screen.dart';
-import 'package:stakk_savings/features/loan/presentation/screens/loan_screen.dart';
+import 'package:stakk_savings/features/wallet/presentation/screens/usdc_wallet_screen.dart';
+import 'package:stakk_savings/features/trading/presentation/screens/trading_screen.dart';
 import 'package:stakk_savings/features/wealth/presentation/screens/wealth_screen.dart';
-import 'package:stakk_savings/features/referrals/presentation/screens/referrals_screen.dart';
-import 'package:stakk_savings/features/more/presentation/screens/more_screen.dart';
 
 class DashboardShell extends StatefulWidget {
   const DashboardShell({super.key});
@@ -18,14 +15,12 @@ class DashboardShell extends StatefulWidget {
 }
 
 class _DashboardShellState extends State<DashboardShell> {
-  AppTab _currentTab = AppTab.home;
+  AppTab _currentTab = AppTab.wallet;
 
   final _screens = const [
-    HomeScreen(),
-    LoanScreen(),
-    WealthScreen(),
-    ReferralsScreen(),
-    MoreScreen(),
+    UsdcWalletScreen(), // USDC Wallet tab
+    TradingScreen(),    // Swap tab (stocks & crypto)
+    WealthScreen(),     // Earn tab (Blend)
   ];
 
   void _dismissKeyboard() {
@@ -54,50 +49,30 @@ class _DashboardShellState extends State<DashboardShell> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: _dismissKeyboard,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        // decoration: BoxDecoration(
-        //   gradient: LinearGradient(
-        //     begin: Alignment.topCenter,
-        //     end: Alignment.bottomCenter,
-        //     colors: isDark
-        //         ? [
-        //             AppColors.gradientStartDark,
-        //             AppColors.gradientEndDark,
-        //             AppColors.gradientStartDark,
-        //           ]
-        //         : [
-        //             AppColors.gradientStartLight,
-        //             AppColors.gradientEndLight,
-        //             AppColors.backgroundLight,
-        //           ],
-        //   ),
-        // ),
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          body: Stack(
-            children: [
-              ConnectivityBanner(
-                child: IndexedStack(
-                  index: _currentTab.index,
-                  children: _screens,
-                ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          children: [
+            ConnectivityBanner(
+              child: IndexedStack(
+                index: _currentTab.index,
+                children: _screens,
               ),
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: AppBottomNavBar(
-                  currentTab: _currentTab,
-                  onTabSelected: (tab) {
-                    _dismissKeyboard();
-                    setState(() => _currentTab = tab);
-                  },
-                ),
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: AppBottomNavBar(
+                currentTab: _currentTab,
+                onTabSelected: (tab) {
+                  _dismissKeyboard();
+                  setState(() => _currentTab = tab);
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

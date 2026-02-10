@@ -158,7 +158,15 @@ class _TradingScreenState extends State<TradingScreen> {
         child: CustomScrollView(
           slivers: [
             // Portfolio Summary
-            if (_portfolio != null && _portfolio!.totalValue > 0)
+            if (_loadingPortfolio)
+              SliverToBoxAdapter(
+                child: Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
+                  child: const Center(child: CircularProgressIndicator()),
+                ),
+              )
+            else if (_portfolio != null && _portfolio!.totalValue > 0)
               SliverToBoxAdapter(
                 child: Container(
                   margin: const EdgeInsets.all(16),
@@ -214,6 +222,142 @@ class _TradingScreenState extends State<TradingScreen> {
                       ),
                     ],
                   ),
+                ),
+              ),
+
+            // Your Holdings Section
+            if (_portfolio != null && _portfolio!.holdings.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      Text(
+                        '📊 Your Holdings',
+                        style: AppTheme.title(
+                          context: context,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+
+            if (_portfolio != null && _portfolio!.holdings.isNotEmpty)
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final holding = _portfolio!.holdings[index];
+                    final pnl = holding.totalValue - (holding.shares * holding.avgBuyPrice);
+                    final pnlPercent = holding.avgBuyPrice > 0
+                        ? ((holding.currentPrice - holding.avgBuyPrice) / holding.avgBuyPrice) * 100
+                        : 0.0;
+                    final isPositive = pnl >= 0;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12, left: 16, right: 16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: surface,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(
+                          color: Colors.grey.withOpacity(0.1),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Stock Symbol
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Center(
+                              child: Text(
+                                holding.symbol,
+                                style: AppTheme.title(
+                                  context: context,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Stock Details
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  holding.symbol,
+                                  style: AppTheme.title(
+                                    context: context,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${holding.shares.toStringAsFixed(4)} shares',
+                                  style: AppTheme.caption(
+                                    context: context,
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Value and P&L
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '\$${holding.totalValue.toStringAsFixed(2)}',
+                                style: AppTheme.title(
+                                  context: context,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    isPositive ? Icons.trending_up : Icons.trending_down,
+                                    size: 14,
+                                    color: isPositive ? Colors.green : Colors.red,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '${isPositive ? '+' : ''}\$${pnl.toStringAsFixed(2)} (${isPositive ? '+' : ''}${pnlPercent.toStringAsFixed(2)}%)',
+                                    style: AppTheme.caption(
+                                      context: context,
+                                      fontSize: 12,
+                                      color: isPositive ? Colors.green : Colors.red,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  childCount: _portfolio!.holdings.length,
                 ),
               ),
 

@@ -3,6 +3,10 @@ import rateLimit from 'express-rate-limit';
 /**
  * Rate limiters for different endpoints.
  * Adjust limits based on your needs and traffic patterns.
+ * 
+ * Note: validate.trustProxy is set to false to suppress warnings when trust proxy is enabled.
+ * Railway and other platforms require trust proxy for correct IP detection, but express-rate-limit
+ * warns about this. We disable the validation since we're using Railway's reverse proxy correctly.
  */
 
 // OTP Request Limiter - Prevents spam OTP requests
@@ -13,6 +17,7 @@ export const otpRequestLimiter = rateLimit({
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
   skipSuccessfulRequests: false, // Count all requests, including successful ones
+  validate: { trustProxy: false }, // Suppress warning - Railway requires trust proxy for correct IP detection
 });
 
 // OTP Verify Limiter - Prevents brute force attempts
@@ -22,6 +27,7 @@ export const otpVerifyLimiter = rateLimit({
   message: { error: 'Too many verification attempts. Please request a new code.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
 });
 
 // OAuth Limiter - Prevents abuse of social sign-in
@@ -31,6 +37,7 @@ export const oauthLimiter = rateLimit({
   message: { error: 'Too many requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
 });
 
 // General Auth Limiter - For login endpoints
@@ -41,6 +48,7 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful logins
+  validate: { trustProxy: false },
 });
 
 // Password Reset Limiter - Prevents abuse
@@ -50,6 +58,7 @@ export const passwordResetLimiter = rateLimit({
   message: { error: 'Too many password reset requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
 });
 
 // General API Limiter - For authenticated endpoints
@@ -67,6 +76,7 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: false, // Count all requests
+  validate: { trustProxy: false },
 });
 
 // Strict Limiter - For sensitive operations (withdrawals, transfers)
@@ -76,4 +86,5 @@ export const strictLimiter = rateLimit({
   message: { error: 'Too many requests. Please wait a moment before trying again.' },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { trustProxy: false },
 });

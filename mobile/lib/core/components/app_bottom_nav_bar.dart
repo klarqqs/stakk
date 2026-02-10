@@ -1,10 +1,19 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import '../theme/tokens/app_colors.dart';
 import '../theme/tokens/app_radius.dart';
 
-enum AppTab { home, loan, wealth, reward, more }
+enum AppTab { wallet, swap, earn }
+
+// TON Wallet Color Palette (2026 Modern)
+class WalletColors {
+  static const Color background = Color(0xFF000000); // Pure black
+  static const Color cardBackground = Color(0xFF1C1C1E); // Dark gray
+  static const Color primary = Color(0xFF00D9C5); // Teal/Cyan accent
+  static const Color textPrimary = Color(0xFFFFFFFF);
+  static const Color textSecondary = Color(0xFF8E8E93);
+  static const Color success = Color(0xFF34C759);
+}
 
 class AppBottomNavBar extends StatelessWidget {
   final AppTab currentTab;
@@ -18,14 +27,6 @@ class AppBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final overlayColor = isDark 
-        ? AppColors.surfaceDark.withValues(alpha: 0.75)
-        : Colors.white.withValues(alpha: 0.85);
-    final borderColor = isDark 
-        ? AppColors.glassBorderDark.withValues(alpha: 0.3)
-        : Colors.black.withValues(alpha: 0.05);
-
     return SafeArea(
       top: false,
       bottom: false,
@@ -42,58 +43,41 @@ class AppBottomNavBar extends StatelessWidget {
             child: Container(
               height: 80,
               decoration: BoxDecoration(
-                color: Colors.transparent,
+                color: WalletColors.cardBackground.withOpacity(0.75),
                 borderRadius: BorderRadius.circular(AppRadius.xl),
                 border: Border.all(
-                  color: borderColor,
-                  width: 1,
+                  color: const Color(0xFF2C2C2E).withOpacity(0.5),
+                  width: 0.5,
                 ),
-                // boxShadow: [
-                //   BoxShadow(
-                //     color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
-                //     blurRadius: 24,
-                //     offset: const Offset(0, 8),
-                //     spreadRadius: 0,
-                //   ),
-                // ],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.4),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                    spreadRadius: 0,
+                  ),
+                ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _NavItem(
-                    icon: FontAwesomeIcons.house,
-                    activeIcon: FontAwesomeIcons.house,
-                    label: 'Home',
-                    isActive: currentTab == AppTab.home,
-                    onTap: () => onTabSelected(AppTab.home),
+                    icon: FontAwesomeIcons.wallet,
+                    label: 'USDC Wallet',
+                    isActive: currentTab == AppTab.wallet,
+                    onTap: () => onTabSelected(AppTab.wallet),
                   ),
                   _NavItem(
-                    icon: FontAwesomeIcons.sackDollar,
-                    activeIcon: FontAwesomeIcons.sackDollar,
-                    label: 'Loan',
-                    isActive: currentTab == AppTab.loan,
-                    onTap: () => onTabSelected(AppTab.loan),
+                    icon: FontAwesomeIcons.arrowRightArrowLeft,
+                    label: 'Swap',
+                    isActive: currentTab == AppTab.swap,
+                    onTap: () => onTabSelected(AppTab.swap),
                   ),
                   _NavItem(
-                    icon: FontAwesomeIcons.chartLine,
-                    activeIcon: FontAwesomeIcons.chartLine,
-                    label: 'Wealth',
-                    isActive: currentTab == AppTab.wealth,
-                    onTap: () => onTabSelected(AppTab.wealth),
-                  ),
-                  _NavItem(
-                    icon: FontAwesomeIcons.gift,
-                    activeIcon: FontAwesomeIcons.gift,
-                    label: 'Reward',
-                    isActive: currentTab == AppTab.reward,
-                    onTap: () => onTabSelected(AppTab.reward),
-                  ),
-                  _NavItem(
-                    icon: FontAwesomeIcons.circleUser,
-                    activeIcon: FontAwesomeIcons.circleUser,
-                    label: 'More',
-                    isActive: currentTab == AppTab.more,
-                    onTap: () => onTabSelected(AppTab.more),
+                    icon: FontAwesomeIcons.percent,
+                    label: 'Earn',
+                    isActive: currentTab == AppTab.earn,
+                    onTap: () => onTabSelected(AppTab.earn),
                   ),
                 ],
               ),
@@ -107,14 +91,12 @@ class AppBottomNavBar extends StatelessWidget {
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
-  final IconData activeIcon;
   final String label;
   final bool isActive;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
-    required this.activeIcon,
     required this.label,
     required this.isActive,
     required this.onTap,
@@ -122,10 +104,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final color = isActive
-        ? (isDark ? AppColors.primaryDark : AppColors.primary)
-        : (isDark ? AppColors.textTertiaryDark : AppColors.textTertiaryLight);
+    final color = isActive ? WalletColors.primary : WalletColors.textSecondary;
 
     return InkWell(
       onTap: onTap,
@@ -133,19 +112,24 @@ class _NavItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            FaIcon(isActive ? activeIcon : icon, size: 22, color: color),
-            const SizedBox(height: 4),
+            FaIcon(
+              icon,
+              size: 22,
+              color: color,
+            ),
+            const SizedBox(height: 6),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                 color: color,
+                letterSpacing: 0.2,
               ),
             ),
           ],
