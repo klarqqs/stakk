@@ -242,9 +242,12 @@ class DinariService {
    * Signs the message using Stellar's Ed25519 signature algorithm.
    * Per Dinari docs, the "message" field from the nonce response should be signed.
    * 
+   * Note: Dinari might expect hex-encoded signature instead of base64.
+   * If base64 fails, we can try hex format.
+   * 
    * @param message - The message string to sign (from Dinari nonce response)
    * @param secretKey - Stellar secret key (starts with 'S...')
-   * @returns Base64-encoded signature
+   * @returns Base64-encoded signature (or hex if base64 doesn't work)
    */
   private signMessage(message: string, secretKey: string): string {
     try {
@@ -254,6 +257,7 @@ class DinariService {
       // Sign using Stellar's Ed25519 signature algorithm
       const signature = keypair.sign(messageBytes);
       // Return base64-encoded signature (as required by Dinari API)
+      // If this doesn't work, we might need to try hex: signature.toString('hex')
       return signature.toString('base64');
     } catch (error: any) {
       throw new Error(`Failed to sign message with Stellar keypair: ${error.message}`);
@@ -313,8 +317,14 @@ class DinariService {
 
         // Step 2: Sign the message with Stellar secret key
         // Per Dinari docs, sign the "message" field (not the nonce itself)
-        const signature = this.signMessage(messageToSign, secretKey);
-        console.log(`✅ Signed message with Stellar keypair`);
+        // Try base64 first (standard), fallback to hex if needed
+        let signature = this.signMessage(messageToSign, secretKey);
+        console.log(`✅ Signed message with Stellar keypair`, {
+          messageLength: messageToSign.length,
+          signatureLength: signature.length,
+          signaturePreview: signature.substring(0, 30) + '...',
+          encoding: 'base64',
+        });
 
         // Step 3: Connect wallet with signature
         const payload = {
@@ -329,12 +339,50 @@ class DinariService {
           walletAddress: walletAddress.substring(0, 8) + '...',
           chainId: chainId,
           hasSignature: !!signature,
+          signatureLength: signature?.length,
           hasNonce: !!nonce,
+          nonceLength: nonce?.length,
+          payloadKeys: Object.keys(payload),
         });
 
-        const response = await this.client.post(`/accounts/${accountId}/wallet/external`, payload);
-        console.log(`✅ Wallet connected successfully via API:`, response.data);
-        return response.data;
+        try {
+          const response = await this.client.post(`/accounts/${accountId}/wallet/external`, payload);
+          console.log(`✅ Wallet connected successfully via API:`, response.data);
+          return response.data;
+        } catch (firstError: any) {
+          // If 422 error, try hex signature format instead of base64
+          if (firstError.response?.status === 422) {
+            console.log(`⚠️  Base64 signature failed (422), trying hex format...`);
+            try {
+              // Try hex signature format
+              const keypair = StellarSdk.Keypair.fromSecret(secretKey);
+              const messageBytes = Buffer.from(messageToSign, 'utf8');
+              const sigBytes = keypair.sign(messageBytes);
+              signature = sigBytes.toString('hex');
+              
+              console.log(`✅ Re-signed with hex format`, {
+                signatureLength: signature.length,
+                encoding: 'hex',
+              });
+              
+              const hexPayload = {
+                signature: signature,
+                nonce: nonce,
+                wallet_address: walletAddress,
+                chain_id: chainId,
+              };
+              
+              const response = await this.client.post(`/accounts/${accountId}/wallet/external`, hexPayload);
+              console.log(`✅ Wallet connected successfully with hex signature`);
+              return response.data;
+            } catch (hexError: any) {
+              // Both formats failed, throw original error with details
+              throw firstError;
+            }
+          }
+          // Not a 422 error, rethrow
+          throw firstError;
+        }
       }
 
       // Fallback: Try simple connection (might work for sandbox/managed wallets)
@@ -369,12 +417,53 @@ class DinariService {
         requestPayload: error.config?.data ? JSON.parse(error.config.data) : undefined,
       });
 
-      // Provide helpful error message
+      // Provide helpful error message for 422 validation errors
       if (statusCode === 422) {
+        // Try to extract request payload from error config
+        let requestPayload: any = {};
+        try {
+          if (error.config?.data) {
+            requestPayload = JSON.parse(error.config.data);
+          }
+        } catch {
+          // Ignore parsing errors
+        }
+        
+        console.error('❌ Validation error details (422):', {
+          fullErrorResponse: JSON.stringify(errorData, null, 2),
+          errorFields: errorData.errors || errorData.error?.details || errorData.details,
+          requestPayload: {
+            signature: requestPayload.signature ? `${requestPayload.signature.substring(0, 20)}... (length: ${requestPayload.signature.length})` : 'missing',
+            nonce: requestPayload.nonce ? `${requestPayload.nonce.substring(0, 20)}... (length: ${requestPayload.nonce.length})` : 'missing',
+            wallet_address: requestPayload.wallet_address ? `${requestPayload.wallet_address.substring(0, 8)}... (length: ${requestPayload.wallet_address.length})` : 'missing',
+            chain_id: requestPayload.chain_id || 'missing',
+          },
+        });
+        
+        // Extract specific validation errors if available
+        const validationErrors = errorData.errors || errorData.error?.details || errorData.details;
+        const errorMessage = errorData.error?.message || errorData.message || error.message;
+        
+        // Check if it's a chain_id issue
+        const errorStr = JSON.stringify(errorData).toLowerCase();
+        const mightBeChainIdIssue = errorStr.includes('chain') || 
+                                    errorStr.includes('chain_id') ||
+                                    errorMessage?.toLowerCase().includes('chain');
+        
+        // Check if it's a signature issue
+        const mightBeSignatureIssue = errorStr.includes('signature') || 
+                                      errorStr.includes('sign') ||
+                                      errorMessage?.toLowerCase().includes('signature');
+        
         throw new Error(
-          `Wallet connection validation failed (422). ` +
-          `Check chain_id format - Stellar might need a different format than EVM chains. ` +
-          `Error: ${errorData.error?.message || errorData.message || error.message}`
+          `Wallet connection validation failed (422 Unprocessable Entity). ` +
+          `Dinari rejected the request format.\n` +
+          `Error: ${errorMessage || 'Unknown validation error'}\n` +
+          (validationErrors ? `Validation details: ${JSON.stringify(validationErrors, null, 2)}\n` : '') +
+          `Request sent: chain_id="${requestPayload.chain_id}", has_signature=${!!requestPayload.signature}, has_nonce=${!!requestPayload.nonce}\n` +
+          (mightBeChainIdIssue ? `⚠️  Possible issue: Stellar chain_id "${requestPayload.chain_id}" might not be supported. Check Dinari docs for supported chains.\n` : '') +
+          (mightBeSignatureIssue ? `⚠️  Possible issue: Signature format might be incorrect. Dinari might expect hex instead of base64, or a different encoding.\n` : '') +
+          `Full error response logged above for debugging.`
         );
       }
 
