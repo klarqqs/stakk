@@ -1,4 +1,4 @@
-import axios, { AxiosInstance } from 'axios';
+import axios from 'axios';
 import pool from '../config/database.ts';
 
 /**
@@ -8,7 +8,7 @@ import pool from '../config/database.ts';
  * All trades are tokenized and backed 1:1 by real shares.
  */
 class DinariService {
-  private client: AxiosInstance;
+  private client: ReturnType<typeof axios.create>;
   private apiKeyId: string;
   private apiSecret: string;
   private entityId: string;
