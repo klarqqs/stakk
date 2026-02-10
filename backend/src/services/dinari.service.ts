@@ -1,5 +1,6 @@
 import axios from 'axios';
 import pool from '../config/database.ts';
+import * as StellarSdk from 'stellar-sdk';
 
 /**
  * Dinari API Service for Tokenized Stock Trading
@@ -189,38 +190,198 @@ class DinariService {
   }
 
   /**
-   * Connect wallet to account
-   * For Stellar wallets, Dinari may handle them differently
-   * Check Dinari docs for exact endpoint: POST /accounts/{account_id}/wallet/connect
+   * Get nonce and message for wallet connection (signature-based authentication)
+   * GET /accounts/{account_id}/wallet/external/nonce?wallet_address={address}&chain_id={chain_id}
+   * 
+   * Returns:
+   * - nonce: Single-use identifier
+   * - message: Message to be signed by the wallet
+   * 
+   * Per Dinari docs, both wallet_address and chain_id are required query params.
    */
-  async connectWallet(accountId: string, walletAddress: string, chainId?: string) {
+  async getWalletNonce(accountId: string, walletAddress: string, chainId: string) {
     try {
-      // For Stellar addresses, chain_id might be different or not needed
-      // Try connecting with the wallet address
-      const payload: any = {
-        address: walletAddress,
-      };
+      console.log(`🔵 Getting wallet connection nonce:`, {
+        accountId: accountId.substring(0, 8) + '...',
+        walletAddress: walletAddress.substring(0, 8) + '...',
+        chainId: chainId,
+      });
       
-      // Add chain_id if provided (for EVM chains)
-      // Stellar might use a different format or endpoint
-      if (chainId) {
-        payload.chain_id = chainId;
-      }
-
-      const response = await this.client.post(`/accounts/${accountId}/wallet/connect`, payload);
+      const response = await this.client.get(`/accounts/${accountId}/wallet/external/nonce`, {
+        params: { 
+          wallet_address: walletAddress, // Required query param
+          chain_id: chainId, // Required query param (CAIP-2 format)
+        },
+      });
+      
+      console.log(`✅ Received nonce response:`, {
+        nonce: response.data.nonce,
+        hasMessage: !!response.data.message,
+      });
+      
       return response.data;
     } catch (error: any) {
+      const errorData = error.response?.data || {};
+      console.error('❌ Dinari API error (getWalletNonce):', {
+        status: error.response?.status,
+        url: error.config?.url,
+        error: errorData,
+        message: error.message,
+      });
+      throw new Error(
+        errorData.error?.message ||
+        errorData.message ||
+        'Failed to get wallet nonce'
+      );
+    }
+  }
+
+  /**
+   * Sign a message with Stellar secret key
+   * 
+   * Signs the message using Stellar's Ed25519 signature algorithm.
+   * Per Dinari docs, the "message" field from the nonce response should be signed.
+   * 
+   * @param message - The message string to sign (from Dinari nonce response)
+   * @param secretKey - Stellar secret key (starts with 'S...')
+   * @returns Base64-encoded signature
+   */
+  private signMessage(message: string, secretKey: string): string {
+    try {
+      const keypair = StellarSdk.Keypair.fromSecret(secretKey);
+      // Convert message string to bytes
+      const messageBytes = Buffer.from(message, 'utf8');
+      // Sign using Stellar's Ed25519 signature algorithm
+      const signature = keypair.sign(messageBytes);
+      // Return base64-encoded signature (as required by Dinari API)
+      return signature.toString('base64');
+    } catch (error: any) {
+      throw new Error(`Failed to sign message with Stellar keypair: ${error.message}`);
+    }
+  }
+
+  /**
+   * Connect wallet to account using signature-based authentication
+   * 
+   * Full flow per Dinari API docs:
+   * 1. GET /accounts/{account_id}/wallet/external/nonce?address={wallet_address}
+   *    - Returns a nonce (UUID) that must be signed
+   * 2. Sign the nonce message with wallet's secret key
+   * 3. POST /accounts/{account_id}/wallet/external with:
+   *    - signature: Signed payload from step 2
+   *    - nonce: UUID from step 1
+   *    - wallet_address: Wallet address
+   *    - chain_id: CAIP-2 formatted chain ID
+   * 
+   * Note: For Stellar, we need to determine the correct chain_id format.
+   * The docs show EVM chains (eip155:1, etc.), but Stellar might use a different format.
+   */
+  async connectWallet(accountId: string, walletAddress: string, secretKey?: string) {
+    try {
+      // If we have a secret key, use signature-based connection (required for external wallets)
+      if (secretKey) {
+        console.log(`🔗 Connecting wallet with signature-based auth...`);
+        
+        // Determine Stellar chain ID (CAIP-2 format)
+        // Stellar CAIP-2 chain IDs per documentation:
+        // - Mainnet: "stellar:pubnet"
+        // - Testnet: "stellar:testnet"
+        const chainId = this.environment === 'production' ? 'stellar:pubnet' : 'stellar:testnet';
+        
+        // Step 1: Get nonce and message from Dinari
+        // Per Dinari docs, both wallet_address and chain_id are required query params
+        const nonceData = await this.getWalletNonce(accountId, walletAddress, chainId);
+        
+        // Per Dinari docs, response contains:
+        // - nonce: Single-use identifier (UUID)
+        // - message: Message to be signed by the wallet
+        const nonce = nonceData.nonce;
+        const messageToSign = nonceData.message;
+        
+        if (!nonce || typeof nonce !== 'string') {
+          console.error('Nonce response structure:', JSON.stringify(nonceData, null, 2));
+          throw new Error('Nonce (UUID) not found in Dinari response. Response: ' + JSON.stringify(nonceData));
+        }
+        
+        if (!messageToSign || typeof messageToSign !== 'string') {
+          console.error('Message not found in nonce response:', JSON.stringify(nonceData, null, 2));
+          throw new Error('Message to sign not found in Dinari response. Response: ' + JSON.stringify(nonceData));
+        }
+
+        console.log(`✅ Received nonce: ${nonce}`);
+        console.log(`✅ Message to sign: ${messageToSign.substring(0, 50)}...`);
+
+        // Step 2: Sign the message with Stellar secret key
+        // Per Dinari docs, sign the "message" field (not the nonce itself)
+        const signature = this.signMessage(messageToSign, secretKey);
+        console.log(`✅ Signed message with Stellar keypair`);
+
+        // Step 3: Connect wallet with signature
+        const payload = {
+          signature: signature,
+          nonce: nonce,
+          wallet_address: walletAddress,
+          chain_id: chainId,
+        };
+
+        console.log(`🔗 Sending wallet connection request:`, {
+          accountId: accountId.substring(0, 8) + '...',
+          walletAddress: walletAddress.substring(0, 8) + '...',
+          chainId: chainId,
+          hasSignature: !!signature,
+          hasNonce: !!nonce,
+        });
+
+        const response = await this.client.post(`/accounts/${accountId}/wallet/external`, payload);
+        console.log(`✅ Wallet connected successfully via API:`, response.data);
+        return response.data;
+      }
+
+      // Fallback: Try simple connection (might work for sandbox/managed wallets)
+      // But this likely won't work - signature is required per API docs
+      console.log(`⚠️  No secret key provided, attempting simple connection (may fail - signature required)...`);
+      const chainId = this.environment === 'production' ? 'stellar:pubnet' : 'stellar:testnet';
+      const payload: any = {
+        wallet_address: walletAddress,
+        chain_id: chainId,
+      };
+
+      const response = await this.client.post(`/accounts/${accountId}/wallet/external`, payload);
+      console.log(`✅ Wallet connected successfully (simple method)`);
+      return response.data;
+    } catch (error: any) {
+      const errorData = error.response?.data || {};
+      const statusCode = error.response?.status;
+      
       // If wallet is already connected, that's okay
-      if (error.response?.status === 409 || error.response?.status === 400) {
-        console.log(`Wallet ${walletAddress} may already be connected to account ${accountId}`);
+      if (statusCode === 409 || statusCode === 400) {
+        console.log(`ℹ️  Wallet ${walletAddress.substring(0, 8)}... may already be connected (${statusCode})`);
         return { address: walletAddress, connected: true };
       }
       
-      console.error('Dinari API error (connectWallet):', error.response?.data || error.message);
+      console.error('❌ Dinari API error (connectWallet):', {
+        status: statusCode,
+        url: error.config?.url,
+        method: error.config?.method,
+        error: errorData,
+        message: error.message,
+        hasSecretKey: !!secretKey,
+        requestPayload: error.config?.data ? JSON.parse(error.config.data) : undefined,
+      });
+
+      // Provide helpful error message
+      if (statusCode === 422) {
+        throw new Error(
+          `Wallet connection validation failed (422). ` +
+          `Check chain_id format - Stellar might need a different format than EVM chains. ` +
+          `Error: ${errorData.error?.message || errorData.message || error.message}`
+        );
+      }
+
       throw new Error(
-        error.response?.data?.error?.message ||
-        error.response?.data?.message ||
-        'Failed to connect wallet'
+        errorData.error?.message ||
+        errorData.message ||
+        `Failed to connect wallet: ${error.message}`
       );
     }
   }
@@ -295,8 +456,9 @@ class DinariService {
 
   /**
    * Get or create Dinari account for user and ensure wallet is connected
+   * @param secretKey - Stellar secret key (decrypted) for signature-based wallet connection
    */
-  async getOrCreateAccount(userId: number, walletAddress?: string): Promise<string> {
+  async getOrCreateAccount(userId: number, walletAddress?: string, secretKey?: string): Promise<string> {
     const client = await pool.connect();
     try {
       // Check if user already has a Dinari account
@@ -345,7 +507,7 @@ class DinariService {
             const existingWallet = await this.getWallet(accountId);
             if (!existingWallet || existingWallet.address !== walletAddress) {
               console.log(`🔗 Connecting wallet ${walletAddress.substring(0, 8)}... to shared account...`);
-              await this.connectWallet(accountId, walletAddress);
+              await this.connectWallet(accountId, walletAddress, secretKey);
               console.log(`✅ Wallet connected to shared account`);
             } else {
               console.log(`✅ Wallet already connected to shared account`);
@@ -355,7 +517,7 @@ class DinariService {
             console.warn(`⚠️  Wallet connection note: ${walletError.message}`);
             // Try connecting anyway (account might be empty)
             try {
-              await this.connectWallet(accountId, walletAddress);
+              await this.connectWallet(accountId, walletAddress, secretKey);
               console.log(`✅ Wallet connected after retry`);
             } catch (retryError: any) {
               console.warn(`⚠️  Wallet connection retry failed: ${retryError.message} - will retry on trade`);
@@ -469,7 +631,7 @@ class DinariService {
             // Dinari should handle Stellar addresses automatically
             try {
               console.log(`🔗 Connecting Stellar wallet ${walletAddress.substring(0, 8)}... to account ${accountId.substring(0, 8)}...`);
-              await this.connectWallet(accountId, walletAddress);
+              await this.connectWallet(accountId, walletAddress, secretKey);
               console.log(`✅ Connected Stellar wallet ${walletAddress.substring(0, 8)}... to Dinari account ${accountId.substring(0, 8)}...`);
             } catch (connectError: any) {
               // If connection fails, log but don't fail - wallet might already be connected
@@ -489,7 +651,7 @@ class DinariService {
             // Wallet endpoint not found - try connecting
             try {
               console.log(`🔗 Attempting to connect wallet after 404...`);
-              await this.connectWallet(accountId, walletAddress);
+              await this.connectWallet(accountId, walletAddress, secretKey);
               console.log(`✅ Successfully connected wallet after retry`);
             } catch (retryError: any) {
               console.warn(`⚠️  Wallet connection retry failed: ${retryError.message}`);
@@ -514,10 +676,11 @@ class DinariService {
     ticker: string;
     amountUSD: number;
     walletAddress: string;
+    secretKey?: string;
   }) {
     try {
       // Get or create account and ensure wallet is connected
-      const accountId = await this.getOrCreateAccount(params.userId, params.walletAddress);
+      const accountId = await this.getOrCreateAccount(params.userId, params.walletAddress, params.secretKey);
 
       if (!accountId) {
         throw new Error('Dinari account ID is required. Please ensure DINARI_ENTITY_ID or DINARI_SANDBOX_ACCOUNT_ID is set.');
@@ -540,13 +703,19 @@ class DinariService {
       if (!walletConnected) {
         try {
           console.log(`🔗 Connecting wallet ${params.walletAddress.substring(0, 8)}... to account ${accountId.substring(0, 8)}... before placing order`);
-          await this.connectWallet(accountId, params.walletAddress);
+          await this.connectWallet(accountId, params.walletAddress, params.secretKey);
           walletConnected = true;
           console.log(`✅ Wallet connected successfully`);
         } catch (connectError: any) {
-          // If connection fails, log but continue - some accounts might work without explicit connection
-          console.warn(`⚠️  Wallet connection failed: ${connectError.message}`);
-          console.warn(`⚠️  Attempting to place order anyway - account might support trading without explicit wallet connection`);
+          // Wallet connection failed - this is required for trading
+          console.error(`❌ Wallet connection failed: ${connectError.message}`);
+          console.error(`❌ Account ${accountId} needs a wallet connected before placing orders.`);
+          console.error(`❌ For sandbox: Connect wallet manually via Dinari dashboard → Accounts → "${accountId}" → "+ Connect Wallet"`);
+          throw new Error(
+            `Wallet not connected to account ${accountId.substring(0, 8)}... ` +
+            `Please connect wallet via Dinari dashboard first, or ensure wallet connection succeeds. ` +
+            `Error: ${connectError.message}`
+          );
         }
       }
 

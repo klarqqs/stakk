@@ -66,10 +66,10 @@ export class StocksController {
 
       const amount = Number(amountUSD);
 
-      // Check user's USDC balance and get Stellar address
-      // stellar_public_key is in users table, not wallets table
+      // Check user's USDC balance and get Stellar address + secret key
+      // stellar_public_key and stellar_secret_key_encrypted are in users table
       const balanceResult = await client.query(
-        `SELECT w.usdc_balance, u.stellar_public_key 
+        `SELECT w.usdc_balance, u.stellar_public_key, u.stellar_secret_key_encrypted 
          FROM wallets w 
          JOIN users u ON w.user_id = u.id 
          WHERE w.user_id = $1 FOR UPDATE`,
@@ -90,15 +90,27 @@ export class StocksController {
         return res.status(400).json({ error: 'Stellar wallet address not found' });
       }
 
+      // Decrypt secret key for wallet connection
+      let secretKey: string | undefined;
+      try {
+        const encryptedSecret = balanceResult.rows[0].stellar_secret_key_encrypted;
+        if (encryptedSecret) {
+          secretKey = Buffer.from(encryptedSecret, 'base64').toString('utf-8');
+        }
+      } catch (error) {
+        console.warn('Failed to decrypt secret key, wallet connection might fail:', error);
+      }
+
       // Start transaction
       await client.query('BEGIN');
 
-      // Place buy order with Dinari
+      // Place buy order with Dinari (will automatically connect wallet if needed)
       const order = await dinariService.buyStock({
         userId,
         ticker,
         amountUSD: amount,
         walletAddress,
+        secretKey,
       });
 
       // Deduct USDC from user's balance
