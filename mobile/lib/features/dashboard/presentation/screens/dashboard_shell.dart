@@ -59,37 +59,44 @@ class _DashboardShellState extends State<DashboardShell> {
       onTap: _dismissKeyboard,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: isDark
-                ? [
-                    AppColors.gradientStartDark,
-                    AppColors.gradientEndDark,
-                    AppColors.gradientStartDark,
-                  ]
-                : [
-                    AppColors.gradientStartLight,
-                    AppColors.gradientEndLight,
-                    AppColors.backgroundLight,
-                  ],
-          ),
-        ),
+        // decoration: BoxDecoration(
+        //   gradient: LinearGradient(
+        //     begin: Alignment.topCenter,
+        //     end: Alignment.bottomCenter,
+        //     colors: isDark
+        //         ? [
+        //             AppColors.gradientStartDark,
+        //             AppColors.gradientEndDark,
+        //             AppColors.gradientStartDark,
+        //           ]
+        //         : [
+        //             AppColors.gradientStartLight,
+        //             AppColors.gradientEndLight,
+        //             AppColors.backgroundLight,
+        //           ],
+        //   ),
+        // ),
         child: Scaffold(
           backgroundColor: Colors.transparent,
-          body: ConnectivityBanner(
-            child: IndexedStack(
-              index: _currentTab.index,
-              children: _screens,
-            ),
-          ),
-          bottomNavigationBar: AppBottomNavBar(
-            currentTab: _currentTab,
-            onTabSelected: (tab) {
-              _dismissKeyboard();
-              setState(() => _currentTab = tab);
-            },
+          body: Stack(
+            children: [
+              ConnectivityBanner(
+                child: IndexedStack(
+                  index: _currentTab.index,
+                  children: _screens,
+                ),
+              ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: AppBottomNavBar(
+                  currentTab: _currentTab,
+                  onTabSelected: (tab) {
+                    _dismissKeyboard();
+                    setState(() => _currentTab = tab);
+                  },
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../theme/tokens/app_colors.dart';
@@ -18,61 +19,85 @@ class AppBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      decoration: BoxDecoration(
-        color: (isDark ? AppColors.surfaceDark : Colors.white).withValues(alpha: 0.92),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        bottom: false,
-        child: SizedBox(
-          height: 80,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _NavItem(
-                icon: FontAwesomeIcons.house,
-                activeIcon: FontAwesomeIcons.house,
-                label: 'Home',
-                isActive: currentTab == AppTab.home,
-                onTap: () => onTabSelected(AppTab.home),
+    final overlayColor = isDark 
+        ? AppColors.surfaceDark.withValues(alpha: 0.75)
+        : Colors.white.withValues(alpha: 0.85);
+    final borderColor = isDark 
+        ? AppColors.glassBorderDark.withValues(alpha: 0.3)
+        : Colors.black.withValues(alpha: 0.05);
+
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.only(
+          bottom: 16,
+          left: 20,
+          right: 20,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadius.xl),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(AppRadius.xl),
+                border: Border.all(
+                  color: borderColor,
+                  width: 1,
+                ),
+                // boxShadow: [
+                //   BoxShadow(
+                //     color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.1),
+                //     blurRadius: 24,
+                //     offset: const Offset(0, 8),
+                //     spreadRadius: 0,
+                //   ),
+                // ],
               ),
-              _NavItem(
-                icon: FontAwesomeIcons.sackDollar,
-                activeIcon: FontAwesomeIcons.sackDollar,
-                label: 'Loan',
-                isActive: currentTab == AppTab.loan,
-                onTap: () => onTabSelected(AppTab.loan),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _NavItem(
+                    icon: FontAwesomeIcons.house,
+                    activeIcon: FontAwesomeIcons.house,
+                    label: 'Home',
+                    isActive: currentTab == AppTab.home,
+                    onTap: () => onTabSelected(AppTab.home),
+                  ),
+                  _NavItem(
+                    icon: FontAwesomeIcons.sackDollar,
+                    activeIcon: FontAwesomeIcons.sackDollar,
+                    label: 'Loan',
+                    isActive: currentTab == AppTab.loan,
+                    onTap: () => onTabSelected(AppTab.loan),
+                  ),
+                  _NavItem(
+                    icon: FontAwesomeIcons.chartLine,
+                    activeIcon: FontAwesomeIcons.chartLine,
+                    label: 'Wealth',
+                    isActive: currentTab == AppTab.wealth,
+                    onTap: () => onTabSelected(AppTab.wealth),
+                  ),
+                  _NavItem(
+                    icon: FontAwesomeIcons.gift,
+                    activeIcon: FontAwesomeIcons.gift,
+                    label: 'Reward',
+                    isActive: currentTab == AppTab.reward,
+                    onTap: () => onTabSelected(AppTab.reward),
+                  ),
+                  _NavItem(
+                    icon: FontAwesomeIcons.circleUser,
+                    activeIcon: FontAwesomeIcons.circleUser,
+                    label: 'More',
+                    isActive: currentTab == AppTab.more,
+                    onTap: () => onTabSelected(AppTab.more),
+                  ),
+                ],
               ),
-              _NavItem(
-                icon: FontAwesomeIcons.chartLine,
-                activeIcon: FontAwesomeIcons.chartLine,
-                label: 'Wealth',
-                isActive: currentTab == AppTab.wealth,
-                onTap: () => onTabSelected(AppTab.wealth),
-              ),
-              _NavItem(
-                icon: FontAwesomeIcons.gift,
-                activeIcon: FontAwesomeIcons.gift,
-                label: 'Reward',
-                isActive: currentTab == AppTab.reward,
-                onTap: () => onTabSelected(AppTab.reward),
-              ),
-              _NavItem(
-                icon: FontAwesomeIcons.circleUser,
-                activeIcon: FontAwesomeIcons.circleUser,
-                label: 'More',
-                isActive: currentTab == AppTab.more,
-                onTap: () => onTabSelected(AppTab.more),
-              ),
-            ],
+            ),
           ),
         ),
       ),

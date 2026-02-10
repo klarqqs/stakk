@@ -94,8 +94,8 @@ class DinariService {
   async getAvailableStocks() {
     try {
       // Dinari API v2 endpoint for stocks: /market_data/stocks/
-      // Try without trailing slash first, then with if needed
-      const response = await this.client.get('/market_data/stocks');
+      // Verified working in Postman with trailing slash
+      const response = await this.client.get('/market_data/stocks/');
       return response.data;
     } catch (error: any) {
       const errorMessage = error.response?.data?.error?.message ||
