@@ -267,27 +267,28 @@ class DinariService {
    */
   async verifyAccountExists(accountId: string): Promise<boolean> {
     try {
-      // Try portfolio endpoint first
-      await this.client.get(`/accounts/${accountId}/portfolio`);
+      // Try getting account details first - this should work for any account
+      await this.client.get(`/accounts/${accountId}`);
       return true;
     } catch (error: any) {
-      // Portfolio might return 404 if account has no holdings
-      // Try account details endpoint instead
+      // If account details returns 404, try portfolio as fallback
+      // (some accounts might only be accessible via portfolio)
       if (error.response?.status === 404) {
         try {
-          // Try getting account details - this should work even if portfolio is empty
-          await this.client.get(`/accounts/${accountId}`);
+          await this.client.get(`/accounts/${accountId}/portfolio`);
           return true;
-        } catch (detailsError: any) {
-          // If account details also returns 404, account doesn't exist
-          if (detailsError.response?.status === 404) {
+        } catch (portfolioError: any) {
+          // Both endpoints returned 404 - account doesn't exist
+          if (portfolioError.response?.status === 404) {
+            console.warn(`Account ${accountId.substring(0, 8)}... not found (404 from both endpoints)`);
             return false;
           }
-          // For other errors, assume account exists (might be auth/permission issue)
+          // Other error - might be auth issue, assume exists
           return true;
         }
       }
-      // For other errors, assume account exists (might be a different issue)
+      // For other errors (auth, network, etc.), assume account exists
+      // This prevents false negatives due to temporary issues
       return true;
     }
   }
@@ -317,13 +318,74 @@ class DinariService {
         }
       }
 
-      // If user has an account ID, verify it exists
+      // Check if shared sandbox account is configured
+      const sharedAccountId = process.env.DINARI_SANDBOX_ACCOUNT_ID;
+      
+      // If shared account is configured, always use it (trust it exists from dashboard)
+      if (sharedAccountId && this.environment === 'sandbox') {
+        // Clear any user-specific account ID to ensure we use shared account
+        if (dinariAccountId && dinariAccountId !== sharedAccountId) {
+          console.log(`ℹ️  Clearing user account ${dinariAccountId.substring(0, 8)}..., using shared account ${sharedAccountId.substring(0, 8)}...`);
+          try {
+            await client.query(
+              'UPDATE users SET dinari_account_id = NULL WHERE id = $1',
+              [userId]
+            );
+          } catch (error: any) {
+            // Ignore errors
+          }
+        }
+        // Use shared account - trust it exists (we know from dashboard)
+        const accountId = sharedAccountId;
+        console.log(`✅ Using shared sandbox account: ${accountId.substring(0, 8)}...`);
+        
+        // Connect wallet to shared account
+        if (walletAddress) {
+          try {
+            const existingWallet = await this.getWallet(accountId);
+            if (!existingWallet || existingWallet.address !== walletAddress) {
+              console.log(`🔗 Connecting wallet ${walletAddress.substring(0, 8)}... to shared account...`);
+              await this.connectWallet(accountId, walletAddress);
+              console.log(`✅ Wallet connected to shared account`);
+            } else {
+              console.log(`✅ Wallet already connected to shared account`);
+            }
+          } catch (walletError: any) {
+            // Wallet connection might fail for empty accounts - that's okay, will retry on trade
+            console.warn(`⚠️  Wallet connection note: ${walletError.message}`);
+            // Try connecting anyway (account might be empty)
+            try {
+              await this.connectWallet(accountId, walletAddress);
+              console.log(`✅ Wallet connected after retry`);
+            } catch (retryError: any) {
+              console.warn(`⚠️  Wallet connection retry failed: ${retryError.message} - will retry on trade`);
+            }
+          }
+        }
+        
+        // Save shared account ID to user record for reference
+        try {
+          await client.query(
+            'UPDATE users SET dinari_account_id = $1 WHERE id = $2',
+            [accountId, userId]
+          );
+        } catch (error: any) {
+          // Column doesn't exist - skip
+          if (error?.code !== '42703') {
+            console.warn(`Cannot save account ID: ${error.message}`);
+          }
+        }
+        
+        return accountId;
+      }
+      
+      // No shared account configured - use user's account or create new one
       if (dinariAccountId) {
+        // User has account ID - verify it exists
         const accountExists = await this.verifyAccountExists(dinariAccountId);
         if (accountExists) {
           console.log(`✅ Using existing account: ${dinariAccountId.substring(0, 8)}...`);
-          // Account exists - connect wallet if provided (even if account already has one)
-          // This ensures wallet is connected for trading
+          // Account exists - connect wallet if provided
           if (walletAddress) {
             try {
               const existingWallet = await this.getWallet(dinariAccountId);
@@ -333,13 +395,12 @@ class DinariService {
                 console.log(`✅ Wallet connected to existing account`);
               }
             } catch (walletError: any) {
-              // If wallet check/connection fails, log but continue - account is still valid
               console.warn(`⚠️  Wallet connection note for existing account: ${walletError.message}`);
             }
           }
           return dinariAccountId;
         } else {
-          console.warn(`⚠️  Account ${dinariAccountId.substring(0, 8)}... not found in Dinari, clearing and creating new one`);
+          console.warn(`⚠️  Account ${dinariAccountId.substring(0, 8)}... not found in Dinari, clearing`);
           // Clear invalid account ID from database
           try {
             await client.query(
@@ -348,12 +409,11 @@ class DinariService {
             );
             console.log(`🗑️  Cleared invalid account ID from user ${userId}`);
           } catch (error: any) {
-            // Column doesn't exist - skip
             if (error?.code !== '42703') {
               console.warn(`Failed to clear invalid account ID: ${error.message}`);
             }
           }
-          // Account doesn't exist, will create new one below
+          // Will create new account below
         }
       }
 
@@ -366,15 +426,11 @@ class DinariService {
         const sharedAccountId = process.env.DINARI_SANDBOX_ACCOUNT_ID;
         
         if (sharedAccountId) {
-          // Use shared account - verify it exists
-          const sharedExists = await this.verifyAccountExists(sharedAccountId);
-          if (sharedExists) {
-            accountId = sharedAccountId;
-            console.log(`ℹ️  Using shared sandbox account: ${accountId.substring(0, 8)}...`);
-          } else {
-            console.warn(`⚠️  Shared sandbox account ${sharedAccountId.substring(0, 8)}... not found, creating new account`);
-            accountId = await this.createAccount();
-          }
+          // Use shared account - trust it exists if set in env vars
+          // (verification might fail for empty accounts, but we know it exists from dashboard)
+          accountId = sharedAccountId;
+          console.log(`ℹ️  Using shared sandbox account: ${accountId.substring(0, 8)}...`);
+          console.log(`ℹ️  Note: Account exists in Dinari dashboard, will connect wallet if needed`);
         } else {
           // No shared account configured - create per-user account
           console.log(`ℹ️  No shared sandbox account configured, creating per-user account`);
