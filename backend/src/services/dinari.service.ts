@@ -226,6 +226,73 @@ class DinariService {
   }
 
   /**
+   * Create a new Dinari account for an entity
+   * POST /entities/{entity_id}/accounts
+   */
+  async createAccount(): Promise<string> {
+    try {
+      if (!this.entityId) {
+        throw new Error('DINARI_ENTITY_ID must be set to create accounts');
+      }
+
+      console.log(`🔵 Creating new Dinari account for entity: ${this.entityId.substring(0, 8)}...`);
+      
+      const response = await this.client.post(`/entities/${this.entityId}/accounts`, {});
+      
+      const accountId = response.data.id || response.data.account_id || response.data.accountId;
+      if (!accountId) {
+        throw new Error('Account creation response missing account ID');
+      }
+
+      console.log(`✅ Created Dinari account: ${accountId.substring(0, 8)}...`);
+      return accountId;
+    } catch (error: any) {
+      const errorData = error.response?.data || {};
+      console.error('Dinari API error (createAccount):', {
+        status: error.response?.status,
+        error: errorData,
+        message: error.message,
+      });
+      throw new Error(
+        errorData.error?.message ||
+        errorData.message ||
+        'Failed to create Dinari account'
+      );
+    }
+  }
+
+  /**
+   * Verify that an account exists in Dinari
+   * Tries multiple endpoints to verify account existence
+   */
+  async verifyAccountExists(accountId: string): Promise<boolean> {
+    try {
+      // Try portfolio endpoint first
+      await this.client.get(`/accounts/${accountId}/portfolio`);
+      return true;
+    } catch (error: any) {
+      // Portfolio might return 404 if account has no holdings
+      // Try account details endpoint instead
+      if (error.response?.status === 404) {
+        try {
+          // Try getting account details - this should work even if portfolio is empty
+          await this.client.get(`/accounts/${accountId}`);
+          return true;
+        } catch (detailsError: any) {
+          // If account details also returns 404, account doesn't exist
+          if (detailsError.response?.status === 404) {
+            return false;
+          }
+          // For other errors, assume account exists (might be auth/permission issue)
+          return true;
+        }
+      }
+      // For other errors, assume account exists (might be a different issue)
+      return true;
+    }
+  }
+
+  /**
    * Get or create Dinari account for user and ensure wallet is connected
    */
   async getOrCreateAccount(userId: number, walletAddress?: string): Promise<string> {
@@ -243,34 +310,80 @@ class DinariService {
       } catch (error: any) {
         // Column doesn't exist - migration hasn't run yet
         if (error?.code === '42703') {
-          console.warn('dinari_account_id column does not exist - using entity ID as fallback');
-          // Return entity ID as fallback until migration is run
-          return this.entityId;
+          console.warn('dinari_account_id column does not exist - will use shared account');
+          // Fall through to use shared account
+        } else {
+          throw error;
         }
-        throw error;
       }
 
+      // If user has an account ID, verify it exists
       if (dinariAccountId) {
-        return dinariAccountId;
+        const accountExists = await this.verifyAccountExists(dinariAccountId);
+        if (accountExists) {
+          console.log(`✅ Using existing account: ${dinariAccountId.substring(0, 8)}...`);
+          // Account exists - connect wallet if provided (even if account already has one)
+          // This ensures wallet is connected for trading
+          if (walletAddress) {
+            try {
+              const existingWallet = await this.getWallet(dinariAccountId);
+              if (!existingWallet || existingWallet.address !== walletAddress) {
+                console.log(`🔗 Connecting wallet to existing account...`);
+                await this.connectWallet(dinariAccountId, walletAddress);
+                console.log(`✅ Wallet connected to existing account`);
+              }
+            } catch (walletError: any) {
+              // If wallet check/connection fails, log but continue - account is still valid
+              console.warn(`⚠️  Wallet connection note for existing account: ${walletError.message}`);
+            }
+          }
+          return dinariAccountId;
+        } else {
+          console.warn(`⚠️  Account ${dinariAccountId.substring(0, 8)}... not found in Dinari, clearing and creating new one`);
+          // Clear invalid account ID from database
+          try {
+            await client.query(
+              'UPDATE users SET dinari_account_id = NULL WHERE id = $1',
+              [userId]
+            );
+            console.log(`🗑️  Cleared invalid account ID from user ${userId}`);
+          } catch (error: any) {
+            // Column doesn't exist - skip
+            if (error?.code !== '42703') {
+              console.warn(`Failed to clear invalid account ID: ${error.message}`);
+            }
+          }
+          // Account doesn't exist, will create new one below
+        }
       }
 
-      // For sandbox, use the shared account ID from Railway env vars
-      // In production, you would create a new account via Dinari API: POST /entities/{entity_id}/accounts
+      // For sandbox: Use shared account ID if set, otherwise create per-user accounts
+      // For production: Create per-user accounts via API
       let accountId: string;
+      
       if (this.environment === 'sandbox') {
-        // Check for explicit sandbox account ID first, then fall back to entity ID
-        accountId = process.env.DINARI_SANDBOX_ACCOUNT_ID || this.entityId;
-        if (!accountId) {
-          throw new Error('DINARI_SANDBOX_ACCOUNT_ID or DINARI_ENTITY_ID must be set for sandbox mode');
+        // Check if shared sandbox account is configured
+        const sharedAccountId = process.env.DINARI_SANDBOX_ACCOUNT_ID;
+        
+        if (sharedAccountId) {
+          // Use shared account - verify it exists
+          const sharedExists = await this.verifyAccountExists(sharedAccountId);
+          if (sharedExists) {
+            accountId = sharedAccountId;
+            console.log(`ℹ️  Using shared sandbox account: ${accountId.substring(0, 8)}...`);
+          } else {
+            console.warn(`⚠️  Shared sandbox account ${sharedAccountId.substring(0, 8)}... not found, creating new account`);
+            accountId = await this.createAccount();
+          }
+        } else {
+          // No shared account configured - create per-user account
+          console.log(`ℹ️  No shared sandbox account configured, creating per-user account`);
+          accountId = await this.createAccount();
         }
-        console.log(`ℹ️  Using sandbox account: ${accountId.substring(0, 8)}...`);
       } else {
-        // In production, could create per-user accounts via API
-        // For now, use entity ID as fallback
-        accountId = this.entityId;
-        if (!accountId) {
-          throw new Error('DINARI_ENTITY_ID must be set for production mode');
-        }
+        // Production: Create per-user account
+        console.log(`ℹ️  Production mode: Creating per-user account`);
+        accountId = await this.createAccount();
       }
 
       // Save account ID to user record (only if column exists)
@@ -279,19 +392,19 @@ class DinariService {
           'UPDATE users SET dinari_account_id = $1 WHERE id = $2',
           [accountId, userId]
         );
+        console.log(`✅ Saved account ID ${accountId.substring(0, 8)}... to user ${userId}`);
       } catch (error: any) {
         // Column doesn't exist - skip update, just return account ID
         if (error?.code === '42703') {
-          console.warn('Cannot update dinari_account_id - column does not exist');
+          console.warn('Cannot update dinari_account_id - column does not exist (run migration)');
         } else {
           throw error;
         }
       }
 
-      // For sandbox: Skip wallet connection for shared accounts
-      // Sandbox accounts may be managed accounts that don't require wallet connection
-      // Wallet connection is only needed for production per-user accounts
-      if (walletAddress && this.environment !== 'sandbox') {
+      // Connect wallet to account if provided
+      // This is required for both sandbox and production accounts
+      if (walletAddress) {
         try {
           const existingWallet = await this.getWallet(accountId);
           if (!existingWallet || existingWallet.address !== walletAddress) {
@@ -299,23 +412,36 @@ class DinariService {
             // Stellar addresses don't use chain_id in the same way as EVM
             // Dinari should handle Stellar addresses automatically
             try {
+              console.log(`🔗 Connecting Stellar wallet ${walletAddress.substring(0, 8)}... to account ${accountId.substring(0, 8)}...`);
               await this.connectWallet(accountId, walletAddress);
-              console.log(`✅ Connected Stellar wallet ${walletAddress} to Dinari account ${accountId}`);
+              console.log(`✅ Connected Stellar wallet ${walletAddress.substring(0, 8)}... to Dinari account ${accountId.substring(0, 8)}...`);
             } catch (connectError: any) {
               // If connection fails, log but don't fail - wallet might already be connected
               // or Dinari might handle wallet connection differently
-              console.warn(`Wallet connection note: ${connectError.message}`);
+              console.warn(`⚠️  Wallet connection note: ${connectError.message}`);
+              // Don't throw - account can still be used, wallet connection might not be required for all operations
             }
           } else {
-            console.log(`✅ Wallet ${walletAddress} already connected to account ${accountId}`);
+            console.log(`✅ Wallet ${walletAddress.substring(0, 8)}... already connected to account ${accountId.substring(0, 8)}...`);
           }
         } catch (walletError: any) {
           // If wallet check fails, log but continue - account is still valid
           // Wallet connection can be retried on next trade
-          console.warn(`Wallet check note: ${walletError.message}`);
+          console.warn(`⚠️  Wallet check note: ${walletError.message}`);
+          // Try to connect anyway if wallet check failed
+          if (walletError.response?.status === 404) {
+            // Wallet endpoint not found - try connecting
+            try {
+              console.log(`🔗 Attempting to connect wallet after 404...`);
+              await this.connectWallet(accountId, walletAddress);
+              console.log(`✅ Successfully connected wallet after retry`);
+            } catch (retryError: any) {
+              console.warn(`⚠️  Wallet connection retry failed: ${retryError.message}`);
+            }
+          }
         }
-      } else if (this.environment === 'sandbox') {
-        console.log(`ℹ️  Sandbox mode: Using shared account, wallet connection skipped`);
+      } else {
+        console.log(`ℹ️  No wallet address provided, skipping wallet connection`);
       }
 
       return accountId;

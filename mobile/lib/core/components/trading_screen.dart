@@ -123,8 +123,8 @@ class _TradingScreenState extends State<TradingScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ErrorDialog.show(context, message: 'Failed to buy stock: ${e.toString()}');
-        log('Failed to buy stock: ${e.toString()}');
+        ErrorDialog.show(context, message: 'vertical: 16ck: ${e.toString()}');
+        log('vertical: 16ck: ${e.toString()}');
       }
     } finally {
       if (mounted) {
