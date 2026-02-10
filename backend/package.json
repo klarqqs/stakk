@@ -17,6 +17,7 @@
     "migrate:referrals": "ts-node src/migrations/add-referrals.ts",
     "migrate:notifications": "ts-node src/migrations/add-notifications.ts",
     "migrate:device-tokens": "ts-node src/migrations/add-device-tokens.ts",
+    "migrate:stocks": "ts-node src/migrations/add-stock-trading.ts",
     "db:clear": "ts-node src/scripts/clear-database.ts",
     "check-treasury": "ts-node src/scripts/check-treasury.ts",
     "test-user": "ts-node src/test-user-creation.ts",

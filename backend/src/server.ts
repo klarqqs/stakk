@@ -174,5 +174,11 @@ app.listen(Number(PORT), '0.0.0.0', async () => {
     console.warn('⚠️  EMAIL_SERVICE=resend but RESEND_API_KEY is missing. Signup emails will fail.');
   }
   
+  // Dinari API validation
+  if (process.env.DINARI_API_KEY_ID && !process.env.DINARI_API_SECRET) {
+    console.warn('⚠️  DINARI_API_KEY_ID is set but DINARI_API_SECRET is missing. Stock trading will fail.');
+  }
+  
   console.log('✅ Server initialized successfully');
+  console.log('📝 To enable stock trading, run: npm run migrate:stocks');
 });

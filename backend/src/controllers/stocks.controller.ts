@@ -11,7 +11,9 @@ export class StocksController {
   async getAvailableStocks(_req: AuthRequest, res: Response) {
     try {
       const data = await dinariService.getAvailableStocks();
-      res.json({ stocks: data.stocks || data || [] });
+      // Dinari API returns array directly or wrapped in data property
+      const stocks = Array.isArray(data) ? data : (data?.data || data?.stocks || []);
+      res.json({ stocks });
     } catch (error: unknown) {
       console.error('Get available stocks error:', error);
       res.status(500).json({
@@ -141,13 +143,33 @@ export class StocksController {
     try {
       const userId = req.userId!;
 
-      // Get user's Dinari account ID
-      const userResult = await pool.query(
-        'SELECT dinari_account_id FROM users WHERE id = $1',
-        [userId]
-      );
-
-      const dinariAccountId = userResult.rows[0]?.dinari_account_id;
+      // Get user's Dinari account ID and wallet address
+      let dinariAccountId: string | null = null;
+      let walletAddress: string | null = null;
+      
+      try {
+        const userResult = await pool.query(
+          `SELECT u.dinari_account_id, w.stellar_public_key 
+           FROM users u
+           LEFT JOIN wallets w ON w.user_id = u.id
+           WHERE u.id = $1`,
+          [userId]
+        );
+        dinariAccountId = userResult.rows[0]?.dinari_account_id || null;
+        walletAddress = userResult.rows[0]?.stellar_public_key || null;
+      } catch (error: any) {
+        // Column doesn't exist - migration hasn't run yet
+        if (error?.code === '42703') {
+          console.warn('dinari_account_id column does not exist - run migration add-stock-trading.ts');
+          return res.json({
+            holdings: [],
+            totalValue: 0,
+            totalChange: 0,
+            totalChangePercent: 0,
+          });
+        }
+        throw error;
+      }
 
       if (!dinariAccountId) {
         return res.json({
@@ -156,6 +178,16 @@ export class StocksController {
           totalChange: 0,
           totalChangePercent: 0,
         });
+      }
+
+      // Ensure wallet is connected before fetching portfolio
+      if (walletAddress) {
+        try {
+          await dinariService.getOrCreateAccount(userId, walletAddress);
+        } catch (error: any) {
+          // Log but continue - portfolio fetch might still work
+          console.warn('Wallet connection check failed:', error.message);
+        }
       }
 
       const portfolio = await dinariService.getPortfolio(dinariAccountId);
@@ -176,6 +208,47 @@ export class StocksController {
       console.error('Get portfolio error:', error);
       res.status(500).json({
         error: error instanceof Error ? error.message : 'Failed to fetch portfolio',
+      });
+    }
+  }
+
+  /**
+   * Get connected wallet info for user's Dinari account
+   * GET /api/stocks/wallet
+   */
+  async getWallet(req: AuthRequest, res: Response) {
+    try {
+      const userId = req.userId!;
+
+      // Get user's Dinari account ID
+      const userResult = await pool.query(
+        'SELECT dinari_account_id FROM users WHERE id = $1',
+        [userId]
+      );
+
+      const dinariAccountId = userResult.rows[0]?.dinari_account_id;
+
+      if (!dinariAccountId) {
+        return res.status(404).json({ error: 'Dinari account not found. Make a trade first to create an account.' });
+      }
+
+      const wallet = await dinariService.getWallet(dinariAccountId);
+
+      if (!wallet) {
+        return res.json({
+          connected: false,
+          message: 'Wallet not connected to Dinari account yet',
+        });
+      }
+
+      res.json({
+        connected: true,
+        wallet,
+      });
+    } catch (error: unknown) {
+      console.error('Get wallet error:', error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : 'Failed to fetch wallet info',
       });
     }
   }
